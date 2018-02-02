@@ -1,4 +1,4 @@
-###Here we will implement the distributor as a service.
+### Here we will implement the distributor as a service.
 The service will be running in the background, holding an instance of the distributor.
 
 The service will provide an interface for the following commands:
@@ -7,16 +7,13 @@ The service will provide an interface for the following commands:
 * _service\_stop_
 * _service\_status_
 * _add\_taskset_
-
  expects a taskset as provided by the [taskgen module]()
 
 * _check\_state_
 * _get\_max\_machine\_value_
-
  returns the current max\_machine\_value
 
 * _change\_max\_machine\_value_
-
  expects a positive integer
 
 The distributor is started upon starting the service and is running _idle_ in the background. 
@@ -30,7 +27,7 @@ Each thread is spawning a Qemu instance and creates a session to connect to it.
 After exhausting all submitted tasksets the distributor falls back into the 'idle' state.
 The machines are killed and the threads are closed untill a new taskset is submitted
 
-####Additional information:
+#### Additional information:
 
  The bridge is only removed upon closing the distributor.
 
