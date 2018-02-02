@@ -21,44 +21,30 @@ from itertools import chain
 from math import ceil
 import errno
 
-from taskgen.taskset import TaskSet
-from taskgen.monitor import AbstractMonitor
-from taskgen.session import AbstractSession
-from taskgen.sessions.genode import PingSession
+from taskgen.taskset import TaskSet #TODO pfad anpassen
+from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
+from taskgen.session import AbstractSession#TODO pfad anpassen
+from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 
 
 class Distributor:
-    """Class for asycron distribution of task-sets"""
+    """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self,
-                 destinations,
-                 port=3001,
-                 session_class=PingSession,
-                 starter_threads = 20):
-        """Start connecting to target plattforms.
+                 max_machine = 5):
+        """Start a bridge and await tasksets.
 
-        :param destination str, [str]: IP addresses or ranges of destination/target
-        system(s). format: CIDR.  
-
-        :param port int: Port of destination
-
-        :param session_class taskgen.session.AbstractSession: Session class,
-        which establishs the connection to the target plattform.
-
-        :param starter_threads int: Number of threads for doing the availablity
-        check of a target plattform.
-        
-        :raises TypeError: wrong parameters types
-        :raises ValueError: destination does not appear to be an IPv4 or IPv6 address
+        :param max_machine int: positive non zero number of machines the distributor is allowed hold
 
         """
-
+"""DEPRECATED
         if not isinstance(port, int):
             raise TypeError("port must be int")
 
         if not issubclass(session_class, AbstractSession):
             raise TypeError("session_class must be a class with subtype AbstractSession")
-
+"""
+        self._max_machine = max_machine
         self._sessions = []
         self._starter = []
         self._port = port
@@ -71,6 +57,14 @@ class Distributor:
         self._tasksets = []
         self._session_params = None
         
+        self._create_bridge(self)
+
+
+    def _create_bridge(self):
+        #TODO: create network bridge and keep reference for cleanup
+        pass
+
+"""DEPRECATED        
         # build pool of IP destination addresses
         if isinstance(destinations, str):
             self._append_pool(destinations)
@@ -85,10 +79,11 @@ class Distributor:
             starter = threading.Thread(target=Distributor._starter, args=(self,))
             starter.start()
             self._starter.append(starter)
-
+"""
+"""DEPRECATED
             
     def _append_pool(self, destination):
-        """Adds a range of ip addresses to the pool"""
+        #Adds a range of ip addresses to the pool
         # try to parse as single ip address
         try:
             ip = ip_address(destination)
@@ -99,19 +94,53 @@ class Distributor:
         # parse as ip range or raise error
         for ip in ip_network(destination).hosts():
             self._pool.put(str(ip))
+"""
 
-            
+    def get_max_machine_value(self):
+        """Returns the current max_machine value."""
+        return self._max_machine
+    
+
+    def set_max_machine_value(self, new_value):
+        """Changes the _max_machine value.
+        :param new_value int: positive non zero value
+        :raises ValueError: new_value is not a natural number
+        """
+        if isinstance(new_value, int) and 0 < new_value:
+            #TODO maybe add upper bound for not crashing the system with large numbers
+            self._max_machine = new_value
+            #TODO: add notification to adjust running sessions if running
+        else:
+            raise ValueError("The new max_machine value is not an integer greater zero.")
+
+    def _refresh_starter(self):
+        #Adjusts the amount of running starter threads to the current max_machine value.
+        if not self._starter:
+            for c in range(0, self._max_machine):
+                starter = threading.Thread(target=Distributor._starter, args=(self,))
+                starter.start()
+                self._starter.append(starter)
+        else:
+            l = self._max_machine - len(self._starter)
+            if l > 0:
+                for c in range(0,l):
+                starter = threading.Thread(target=Distributor._starter, args=(self,))
+                starter.start()
+                self._starter.append(starter)
+            elif l < 0:
+                #TODO stop l threads (gently)
+
+
+
     @staticmethod
     def _starter(self):
-        """Checks the availablity of a destination
+        """Starts up a Qemu instance with Genode and a session to connect to Genode.
         
-        This method checks the availablity of all destination in the pool. For
-        each available destination, a thread _`WrapperSession` is started for
-        establishing a connection. The actual connection is handled by a
-        session.
+        A thread _`WrapperSession` is started for establishing a connection. 
+        The actual connection is handled by a session.
         
         This method is only called by a seperated thread. These are started in
-        `__init__`.
+        `_refresh_starter`.
 
         """
 
@@ -170,6 +199,8 @@ class Distributor:
 
             
     def start(self, taskset, *session_params, wait=True):
+        ####TODO: this should trigger spawning of _start threads
+
         """Starts the distribution of task-sets
 
         :param taskset taskgen.taskset.TaskSet: a taskset for the distribution

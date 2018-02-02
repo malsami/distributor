@@ -5,6 +5,7 @@ import time
 class MyService(Service):
 	def __init__(self, *args, **kwargs):
 		super(MyService, self).__init__(*args,**kwargs)
+		#TODO understand logger and use correct loghandlers
 		self.logger.addHandler(SysLogHandler(address=find_syslog(), facility=SysLogHandler.LOG_DAEMON))
 		self.logger.setLevel(logging.INFO)
 
@@ -13,10 +14,10 @@ class MyService(Service):
 		n = 0
 		while not self.got_sigterm():
 			self.logger.info("I'm working...")
-			n = n +1
-			time.sleep(5)
-			with open('/home/hamsch/operating-system/client-tools/service/try1.log', 'w') as f:
-				f.write("still here {}\n".format(n))
+			"""
+			TODO
+			here we want to create the distributor instance
+			"""
 
 if __name__ == '__main__':
 	import sys
