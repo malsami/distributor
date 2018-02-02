@@ -7,14 +7,17 @@ The service will provide an interface for the following commands:
 * _service\_stop_
 * _service\_status_
 * _add\_taskset_
- expects a taskset as provided by the [taskgen module]()
+
+  expects a taskset as provided by the [taskgen module]()
 
 * _check\_state_
 * _get\_max\_machine\_value_
- returns the current max\_machine\_value
+
+  returns the current max\_machine\_value
 
 * _change\_max\_machine\_value_
- expects a positive integer
+
+  expects a positive integer
 
 The distributor is started upon starting the service and is running _idle_ in the background. 
 At initial startup of the distributor a network bridge is created.(including a possible cleanup)
