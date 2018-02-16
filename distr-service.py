@@ -2,9 +2,9 @@ from service import Service, find_syslog
 import logging
 from logging.handlers import SysLogHandler
 import time
-class MyService(Service):
+class DistributorService(Service):
 	def __init__(self, *args, **kwargs):
-		super(MyService, self).__init__(*args,**kwargs)
+		super(DistributorService, self).__init__(*args,**kwargs)
 		#TODO understand logger and use correct loghandlers
 		self.logger.addHandler(SysLogHandler(address=find_syslog(), facility=SysLogHandler.LOG_DAEMON))
 		self.logger.setLevel(logging.INFO)
@@ -26,11 +26,11 @@ if __name__ == '__main__':
 		sys.exit('Syntax: %s COMMAND' % sys.argv[0])
 
 	cmd = sys.argv[1].lower()
-	service = MyService('my_service', pid_dir='/tmp')
+	service = DistributorService('distr_service', pid_dir='/tmp')
 
 	if cmd == 'start':
 		service.start()
-		with open('/home/hamsch/operating-system/client-tools/service/try1.log', 'w') as f:
+		with open('/home/hamsch/operating-system/client-tools/service/try1.log', 'w') as f:#only for testing something
 				f.write("still here {}\n".format(0))
 		print("i got told to start")
 

@@ -76,7 +76,7 @@ class GenodeSession(AbstractSession):
 
         
     def is_running(self, taskset):
-        # TODO Currently, we do NOT know when a task-set is done.
+        # TODO make use of  JOBS_DONE
         for task in taskset:
             if not task.jobs:
                 # list is empty, and we wait until every task is executed minimum once.
@@ -147,6 +147,8 @@ class GenodeSession(AbstractSession):
                         task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
+                #elif _type == "JOBS_DONE":
+                    #todo stuff here!!!
                 else:
                     self.logger.critical("Unknown event type {}".format(_type))
 
