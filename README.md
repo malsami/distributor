@@ -6,7 +6,7 @@ The service will provide an interface for the following commands:
 * _service\_start_
 * _service\_stop_
 * _service\_status_
-* _add\_taskset_
+* _add\_job_
 
   expects a taskset as provided by the [taskgen module]()
 
