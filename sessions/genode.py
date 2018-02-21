@@ -76,19 +76,12 @@ class GenodeSession(AbstractSession):
 
         
     def is_running(self, taskset):
-        # TODO make use of  JOBS_DONE
+        done = True
         for task in taskset:
-            if not task.jobs:
-                # list is empty, and we wait until every task is executed minimum once.
-                return True
-
-            # there is minimum one job in the list, so check if anyone is running
-            for job in task.jobs:
-                if job.is_running():
-                    return True
-
-        # all jobs are done.
-        return False
+            done = done and ((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
+        
+        # if all jobs are done, we are not running anymore
+        return not done
 
     
     def run(self, taskset):
@@ -112,6 +105,11 @@ class GenodeSession(AbstractSession):
         # parse xml
         try:
             ascii = data.decode("ascii").replace('\x00', '')
+            #ascii should now be just a string
+            #to make sure no corrupted xml files still get parsed correctly, we fix it if it is broken
+            temp = ascii.split("</profile>")
+            ascii = temp[0]+'</profile>'
+            #now we can be certain the parser will not have issues
             profile = xmltodict.parse(ascii)
         except:
             self.logger.error('XML event data not parseable.')
@@ -119,7 +117,7 @@ class GenodeSession(AbstractSession):
 
         # parse profile
         try:
-            events = profile['profile']['events']['event']
+            events = profile['profile']['events']['event']#returns a list of dict with each dict holding the information of an event
 
             # it is possible, that only a single event is in events, which is
             # not be formated in a list. But we exspect a list.
@@ -147,8 +145,13 @@ class GenodeSession(AbstractSession):
                         task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
-                #elif _type == "JOBS_DONE":
-                    #todo stuff here!!!
+                elif _type == "JOBS_DONE":
+                    #TODO this is fine, but aparently not working on the genode system.
+                    #if we receive this, we do nothing so far
+                    if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
+                    	self.logger.critical("JOBS_DONE from Genode is received but jobs is not number of jobs long yet.")
+                elif _type == "NOT_SCHEDULED":
+                	#TODO kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
                 else:
                     self.logger.critical("Unknown event type {}".format(_type))
 
