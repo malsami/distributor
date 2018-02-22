@@ -137,6 +137,7 @@ class Distributor:
         self._refresh_machines()
 
 	def kill_all(self):
+		#hard kill, callable from outside
 		self.logger.info("Killing machines...")
 		for m in self._machines:
 			m[1].clear()
@@ -144,6 +145,7 @@ class Distributor:
 		self._machines = []
 
 	def _clean_machines(self):
+		#cleans up machines which are not running
 		dead = []
 		while self._machines:
 			for m in self._machines:

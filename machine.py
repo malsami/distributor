@@ -36,7 +36,7 @@ class Machine(threading.Thread):
         self._session = None
         self._session_params = None
 
-        self._logger = logging.getLogger("Distributor({})".format(host))
+        self._logger = logging.getLogger("Distributor({})".format(host))#TODO no host here yet
 
         self._taskset_list_lock = lock #threading.Lock()
         self._taskset_list = tasksets
@@ -46,7 +46,7 @@ class Machine(threading.Thread):
         
         self._monitor = None
 
-        self._listening = threading.Event()
+        self._listening = threading.Event()#initially false
         self._listener_thread = None
         self._started = False
         self._stopped = True
@@ -57,7 +57,7 @@ class Machine(threading.Thread):
             if not self._session_died:
                 try:
                     if self._current_set is not None:
-                        if not self._started and not self._session.running():#TODO make running great again
+                        if not self._started and not self._session.running():
                             # if not started -> session.start()
                             try:
                                 self._session.start(self._current_set, *self._session_params)
@@ -70,8 +70,7 @@ class Machine(threading.Thread):
                             except TypeError as e:
                                 #meaning session params for a quemu instance are not instance of dict(admctrl) or a taskset not of TaskSet
                                 self._logger.debug(e)
-                                #TODO: das hier kann noch nicht alles sein, sonst rennt mir der einfach so weiter...
-                                #       kann ich das nicht schon bei eingabe prüfen? eg. in get_taskset()
+                                #should not happen because we check the type in distributor.add_job()
                         
                         elif not self._stopped and not self._session.running():#TODO make running great again otherwise we need a timelimit
                             self._session.stop()
