@@ -26,6 +26,8 @@ from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
 from taskgen.session import AbstractSession#TODO pfad anpassen
 from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
+from bridge import *
+from subprocess import *
 
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
@@ -52,8 +54,8 @@ class Distributor:
 
 
     def _create_bridge(self):
-        #TODO: create network bridge and keep reference for cleanup
-        pass
+        #This bridge is configured in the interfaces 
+        br = bridge.Bridge("br0")
 
     def _kill_log_killer(self):
     	#TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up

@@ -7,6 +7,8 @@ to sending tasksets while listening for events from genode.
 import threading
 import errno
 import time
+from subprocess import * 
+import subprocess as sb
 #TODO
 #import session ?
 #import sessions.genode ?
@@ -51,6 +53,8 @@ class Machine(threading.Thread):
         self._started = False
         self._stopped = True
         self._continue = True
+
+        self._pid_dict = {}
 
     def run(self):
         while self._running.is_set():#life loop of Machine
@@ -133,15 +137,50 @@ class Machine(threading.Thread):
         self.logger.info("Machine with host  {} is closed.".format(self._host))
 
     def _create_tap_device(self):
-        #TODO
-        pass
+        tap = tap.Tap()
+        tap.up()
+        bridge = brctl.findbridge(self.bridge.name)
+        bridge.addif(tap.name)
 
     def _spawn_host(self):
         #TODO
         #check if macadress currently active(host already/still up? if yes, kill it)
+
+        #Generate random mac address
+        mac = randomize_mac()
+
+
+
+        active_host = Popen(["./check_mac.sh",mac], stdout=PIPE, stderr=PIPE).communicate()[0]
+        
+        if(active_host in _pid_dict):
+            kill_pid = _pid_dict[active_host]
+            sb.call(["kill", "-9", kill_pid]) #Kill the id
+
+        pid_and_qemuIP = Popen(["./qemu.sh", name, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+    
+    
+        pid = pid_and_qemuIP[0]
+        qeum_ip = pid_and_qemuIP[1]
+
+        _pid_dict[pid] = qeum_ip
+
+            #Script to kill 
+
+
+        if(checked_output !=''):
+            print("success")
         #spawns a Qemu/Genode host
         #bridge comes from self
         #should return the ip address of the started host
+
+    def randomize_mac(): 
+        
+        pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True)
+        raw_output = pipe.communicate()
+        mac = raw_output[0] #stdout is in 0 of tuple
+    
+        return mac
 
     def _revive_session(self):
     	###Connect to existing host and starts listener
