@@ -153,6 +153,7 @@ class Machine(threading.Thread):
 
         active_host = Popen(["./check_mac.sh",mac], stdout=PIPE, stderr=PIPE).communicate()[0]
         
+        #script to kill
         if(active_host in _pid_dict):
             kill_pid = _pid_dict[active_host]
             sb.call(["kill", "-9", kill_pid]) #Kill the id
@@ -161,11 +162,10 @@ class Machine(threading.Thread):
     
     
         pid = pid_and_qemuIP[0]
-        qeum_ip = pid_and_qemuIP[1]
+        qemu_ip = pid_and_qemuIP[1]
 
-        _pid_dict[pid] = qeum_ip
+        _pid_dict[pid] = qemu_ip
 
-            #Script to kill 
 
 
         if(checked_output !=''):
@@ -173,6 +173,7 @@ class Machine(threading.Thread):
         #spawns a Qemu/Genode host
         #bridge comes from self
         #should return the ip address of the started host
+        return self._bridge
 
     def randomize_mac(): 
         

@@ -64,15 +64,15 @@ class Distributor:
         while True: 
             kill_ip = Popen(["./kill_logger.sh", self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
 
-            if(kill_pid != ''):
-                kill_pid = self._machines._pid_dict[kill_ip]
-                sb.call(["kill", "-9", kill_pid]) #Kill the id
+            if(kill_ip != ''):
+                kill_pid = self._machines._pid_dict[kill_ip] #Retrieve pid 
+                sb.call(["kill", "-9", kill_pid]) #Kill the pid
 
-            #Else continue searching
+            #Continue searching
 
 
 
-    def get_distributor_state(self):
+    def get_distributor_state(self):    
         #function to check if the distributor is already working
         #under the assumption that the distributor is working as soon as there are tasksets to work on
 	    ret = False
