@@ -12,7 +12,7 @@ until [ -f $log ]
 
     # read file and kill own qemu instance if necessary
 #tail -f -n0 $log | read $kill_ip 
-kill_ip=$(tail $log)
+kill_ip=$(tail -f -n0 $log)
 
 printf "%s" $kill_ip
 
