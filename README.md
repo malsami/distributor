@@ -40,3 +40,16 @@ The machines are killed and the threads are closed untill a new taskset is submi
 (maybe it should also be possible to abort submitted tasksets)
 
 
+NETWORK BRIDGEING WITH DHCP : 
+
+
+On host machine, add these lines to /etc/network/interface
+
+auto br0
+iface br0 inet dhcp
+bridge_ports eth0
+bridge_stp off
+bridge_maxwait 0
+bridge_fd 0
+
+Also add new dhcp.conf file. 
