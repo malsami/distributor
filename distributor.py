@@ -59,6 +59,18 @@ class Distributor:
 
     def _kill_log_killer(self):
     	#TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
+        kill_pid = ''
+         
+        while True: 
+            kill_ip = Popen(["./kill_logger.sh", self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
+
+            if(kill_pid != ''):
+                kill_pid = self._machines._pid_dict[kill_ip]
+                sb.call(["kill", "-9", kill_pid]) #Kill the id
+
+            #Else continue searching
+
+
 
     def get_distributor_state(self):
         #function to check if the distributor is already working
