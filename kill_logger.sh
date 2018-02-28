@@ -10,9 +10,8 @@ until [ -f $log ]
         sleep 1
     done
 
-    # read file and kill own qemu instance if necessary
-#tail -f -n0 $log | read $kill_ip 
-kill_ip=$(tail -f -n0 $log)
+#Read the last lien of kill_log 
+kill_ip=$(tail -f -n1 $log)
 
 printf "%s" $kill_ip
 
