@@ -11,7 +11,7 @@ until [ -f $log ]
     done
 
 #Read the last lien of kill_log 
-kill_ip=$(tail -f -n1 $log 2> /dev/null)
+kill_ip=$(tail -f -n0 $log 2> /dev/null)
 
 printf "%s" $kill_ip
 
