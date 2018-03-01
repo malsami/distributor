@@ -32,7 +32,7 @@ class Machine(threading.Thread):
         self._kill_log = kill_log
         self._port = port
 
-		self._running = m_running #threading.Event() |used to shut instance down
+        self._running = m_running #threading.Event() |used to shut instance down
         self._session_class = session_class
         self._session_died = True #state of the current session
         self._session = None
@@ -184,37 +184,37 @@ class Machine(threading.Thread):
         return mac
 
     def _revive_session(self):
-    	###Connect to existing host and starts listener
+        ###Connect to existing host and starts listener
         try:
-        	connection = self._session_class(self._host, self._port)
-			self._logger.info("Connection to {} established.".format(self._host))
-			self._session_died = False
-			self._session = connection
+            connection = self._session_class(self._host, self._port)
+            self._logger.info("Connection to {} established.".format(self._host))
+            self._session_died = False
+            self._session = connection
             self._listening.set()
             self._listener_thread = threading.Thread(target = Machine._listener, args = (self,))
             return True #successful startup
         except socket.error as e:
-			if e.errno == errno.ECONNREFUSED:
-				#J connection refused. there might be other computers in the
-				#J network. that's ok and the error is handled silently.
-				self._logger.debug(e)
-			else:
-				#J otherwise a bigger problem occured
-				self._logger.critical(e)
+            if e.errno == errno.ECONNREFUSED:
+                #J connection refused. there might be other computers in the
+                #J network. that's ok and the error is handled silently.
+                self._logger.debug(e)
+            else:
+                #J otherwise a bigger problem occured
+                self._logger.critical(e)
             self._session_died = True
             self._session = None
             self._listening.clear()
-			return False#return False so we can retry
+            return False#return False so we can retry
 
     def _listener(self):
         #Listener for the session
         try:
-	        while self._listening.is_set():
-	            if self._current_set is not None and self.session.run(self._current_set):#TODO check for none sinnvoll?
-	            	if self._monitor is not None:
-	            		self._monitor.__taskset_event__(self._current_set)
-		
-		except socket.error as e:
+            while self._listening.is_set():
+                if self._current_set is not None and self.session.run(self._current_set):#TODO check for none sinnvoll?
+                    if self._monitor is not None:
+                        self._monitor.__taskset_event__(self._current_set)
+        
+        except socket.error as e:
             # an error occured and is handled now
             self._logger.critical(e)
 
@@ -229,25 +229,25 @@ class Machine(threading.Thread):
                     self._monitor.__taskset_stop__(self._current_set)
                 self._current_set = None
         finally:
-        	self._session_died = True
-        	self._listening.clear()
+            self._session_died = True
+            self._listening.clear()
 
     def close(self):
-    	self._continue = False
+        self._continue = False
 
     def _get_taskset(self):
-        if self._current_generator is None
-        	with self._taskset_list_lock:
-	            if not self._taskset_list:
+        if self._current_generator is None:
+            with self._taskset_list_lock:
+                if not self._taskset_list:
                     return False#abort thread, nothing to process
-            	else:
+                else:
                     self._current_generator = self._taskset_list[0]
                     self._monitor = self._current_generator.monitor
                     self._session_params = self._current_generator.session_params
         else:
             if self._current_generator.empty():
-            	with self._taskset_list_lock:
-	            	if self._taskset_list:
+                with self._taskset_list_lock:
+                    if self._taskset_list:
                         if self._taskset_list.index(self._current_generator) == 0:
                             self._taskset_list.remove(self._current_generator)
                             if not self._taskset_list:
@@ -263,4 +263,3 @@ class Machine(threading.Thread):
             
         self._current_set = self._current_generator.get()#might throw StopIteration is handled upstairs
         return True#all fine
-

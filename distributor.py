@@ -6,6 +6,7 @@ session.
 
 """
 
+
 from abc import ABCMeta, abstractmethod
 import threading
 import time
@@ -13,41 +14,45 @@ import logging
 import subprocess
 import copy
 import socket
-from queue import Empty, Queue, Full
-from collections.abc import Mapping
+from multiprocessing import Queue as queue 
+#from queue import Empty, Queue, Full
+#from collections.abc import Mapping
 from ipaddress import ip_network, ip_address
 from itertools import chain
 from math import ceil
 import errno
 
-from taskgen.taskset import TaskSet #TODO pfad anpassen
-from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
-from taskgen.session import AbstractSession#TODO pfad anpassen
-from taskgen.sessions.genode import PingSession#TODO pfad anpassen
+from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
+#from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
+#from taskgen.session import AbstractSession#TODO pfad anpassen
+#from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
 from bridge import *
 from subprocess import *
 
-class Distributor:
+class Distributor():
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self, max_machine = 1):
-        """Start bridge and dhcp and await tasksets.
-
-        :param max_machine int: positive non zero number of machines the distributor is allowed hold
-
-        """
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        self._machine_killer = threading.Thread(target = Distributor._kill_log_killer, args = (self,))
+        #self._machine_killer = threading.Thread(target = Distributor._kill_log_killer, args = (self,))
+        
+        self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
+        
         self._max_machine = max_machine
         self._machines = []
+
 
         self._port = 3001
         self._session_class = QemuSession
         self.logger = logging.getLogger('Distributor')
 
+
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
+        #self._bridge = _create_bridge()
+        #self._bridge = _create_bridge()
+        
         self._bridge = _create_bridge()
         self._cleaner = None
 
@@ -57,7 +62,7 @@ class Distributor:
         br = bridge.Bridge("br0")
 
     def _kill_log_killer(self):
-    	#TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
+            #TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
         kill_pid = ''
          
         while True: 
@@ -74,71 +79,79 @@ class Distributor:
     def get_distributor_state(self):    
         #function to check if the distributor is already working
         #under the assumption that the distributor is working as soon as there are tasksets to work on
-	    ret = False
 
-	    with self._taskset_list_lock:
-	        if self._tasksets:
-	            ret =True
-
-
+        ret = False
+        
+        with self._taskset_list_lock:
+            
+            if self._tasksets:
+                
+                ret = True 
+       
         return ret
 
     def get_max_machine_value(self):
         """Returns the current max_machine value."""
-        return self._max_machine
+        return self._max_Machine 
+
+
 
     def set_max_machine_value(self, new_value):
-        """Changes the _max_machine value.
+        """Changes the _max_machine value. 
         :param new_value int: positive non zero value
         :raises ValueError: new_value is not a natural number
         """
-        if isinstance(new_value, int) and 0 < new_value:
-            #TODO maybe add upper bound for not crashing the system with large numbers
+        
+        #TODO maybe add upper bound for not crashing the system with large numbers
+        if(isinstance(new_value, int) and 0 < new_value):
             self._max_machine = new_value
             self._refresh_machines()
+        
         else:
-            raise ValueError("The new max_machine value is not an integer greater zero.")
+            raise ValueError("The new max_machine value is not an integer greater than zero.")
 
     def _refresh_machines(self):
         #Adjusts the amount of running starter threads to the current max_machine value.
         #first checking if 
-	    working = False
-	    with self._taskset_list_lock:
-	    	if self._tasksets:
-	    		working = True
-	    if working:		    
-	        if not self._machines:
-	            for c in range(0, self._max_machine):
-	                m_running = threading.Event().set() #initially set to True so variable is speaking
-	                machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-	                machine.start()
-	                self._machines.append((machine, m_running))
-	            self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
-	            self.logger.debug("started {} machines".format(len(self._machines)))
-	        else:
-	            l = self._max_machine - len(self._machines)
-	            if l > 0:
-	                for c in range(0,l):
-	                	m_running = threading.Event().set() #initially set to True
-	                	machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-	                	machine.start()
-	                	self._starter.append((machine,m_running))
-	                self.logger.debug("started {} more machines".format(abs(l)))
-	            elif l < 0:
-	                for k in range(0,abs(l)):
-	                	machine = self._machines.pop()[0]
-	                	machine.close()
-	                self.logger.debug("closed {} machines".format(abs(l)))
+        working = False
+        with self._taskset_list_lock:
+            if self._tasksets:
+                working = True
+            
+            if working:
+                if not self._machines:
+                    for c in range(0, self._max_machine):
+                        m_running = threading.Event().set() #initially set to True so variable is speaking
+                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                        machine.start()
+                        self._machines.append((machine, m_running))
+                self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
+                self.logger.debug("started {} machines".format(len(self._machines)))
+            
+            else:
+                l = self._max_machine - len(self._machines)
+                if l > 0:
+                    for c in range(0,l):
+                        m_running = threading.Event().set() #initially set to True
+                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                        machine.start()
+                        self._starter.append((machine,m_running))
+                    self.logger.debug("started {} more machines".format(abs(l)))
+                elif l < 0:
+                    for k in range(0,abs(l)):
+                        machine = self._machines.pop()[0]
+                        machine.close()
+                    self.logger.debug("closed {} machines".format(abs(l)))
 
     def add_job(self, taskset, monitor = None, *session_params):
-        #	Adds a taskset to the queue and calls _refresh_machines()
-        #	:param taskset taskgen.taskset.TaskSet: a taskset for the distribution
-		#	:param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
-        #	:param session_params: optional parameters which are passed to the
-        #	`start` method of the actual session. Pay attention: Theses parameters
-        #	must be implemented by the session class. A good example is the
-        #	`taskgen.sessions.genode.GenodeSession`, which implements a parameter
-        #	for optional admission control configuration.  
+        #   Adds a taskset to the queue and calls _refresh_machines()
+        #   :param taskset taskgen.taskset.TaskSet: a taskset for the distribution
+            #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
+        #   :param session_params: optional parameters which are passed to the
+        #   `start` method of the actual session. Pay attention: Theses parameters
+        #   must be implemented by the session class. A good example is the
+        #   `taskgen.sessions.genode.GenodeSession`, which implements a parameter
+        #   for optional admission control configuration.  
         
         if taskset is None or not isinstance(taskset, TaskSet):
             raise TypeError("taskset must be TaskSet.")
@@ -149,27 +162,27 @@ class Distributor:
 
         # wrap tasksets into an threadsafe iterator
         with self._taskset_list_lock:
-        	self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, session_params))#TODO will ich hier immer variants aufrufen?
+            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, session_params))#TODO will ich hier immer variants aufrufen?
         self._refresh_machines()
 
-	def kill_all(self):
-		#hard kill, callable from outside
-		self.logger.info("Killing machines...")
-		for m in self._machines:
-			m[1].clear()
-		self.logger.info("All machines shuting down.")
-		self._machines = []
+    def kill_all(self):
+        #hard kill, callable from outside
+        self.logger.info("Killing machines...")
+        for m in self._machines:
+            m[1].clear()
+        self.logger.info("All machines shuting down.")
+        self._machines = []
 
-	def _clean_machines(self):
-		#cleans up machines which are not running
-		dead = []
-		while self._machines:
-			for m in self._machines:
-				if not m[1].is_set():
-					dead.append(m)
-			for d in dead:
-				self._machines.remove(d)
-			dead = []
+    def _clean_machines(self):
+        #cleans up machines which are not running
+        dead = []
+        while self._machines:
+            for m in self._machines:
+                if not m[1].is_set():
+                    dead.append(m)
+            for d in dead:
+                self._machines.remove(d)
+            dead = []
 
 class _TaskSetQueue():
     """Takes an iterator/generator and makes it thread-safe by
