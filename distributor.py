@@ -6,7 +6,6 @@ session.
 
 """
 
-
 from abc import ABCMeta, abstractmethod
 import threading
 import time
@@ -76,9 +75,12 @@ class Distributor:
         #function to check if the distributor is already working
         #under the assumption that the distributor is working as soon as there are tasksets to work on
 	    ret = False
+
 	    with self._taskset_list_lock:
 	        if self._tasksets:
 	            ret =True
+
+
         return ret
 
     def get_max_machine_value(self):

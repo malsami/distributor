@@ -2,7 +2,7 @@ from pynetlinux import *
 from subprocess import *
 import subprocess as sb
 import sys
-import pexpect as p  
+#import pexpect as p  
 import random #For mac addressing
 import os 
 
@@ -159,7 +159,7 @@ if __name__ == '__main__':
 
 		print("Tap name: ", tap_one.name)
 
-		spawn_hosts(tap_one.name)
+		#spawn_hosts(tap_one.name)
 
 		
 		"""for arg in sys.argv[2]:
