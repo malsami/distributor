@@ -27,6 +27,7 @@ if __name__ == '__main__':
 		sys.exit('Syntax: %s COMMAND' % sys.argv[0])
 
 	cmd = sys.argv[1].lower()
+	#max_val = sys.argv[2] #This may be null
 	service = DistributorService('distr_service', pid_dir='/tmp')
 
 	if cmd == 'service_start':
@@ -46,28 +47,41 @@ if __name__ == '__main__':
 			print("Service is not running.")
 
 	elif cmd == 'add_job':
-		#TODO check for number of arguments ( taskset, monitor, *session_params)
-		#TODO call add_job(taskset, monitor, *session_params) on the distributor
+		
+		if(len(sys.argv) != 5):
+			print("Incorrect number of arguments")
+			
+		else: 
+			taskset = sys.argv[2]
+			monitor = sys.argv[3]
+			session_params = sys.argv[4]
+
+			service.distributor.add_job(taskset, monitor, session_params)
 
 	elif cmd == 'check_state':
-		#TODO call get_distributor_state() on distributor
-		#	print message accordingly
+		
+		service.distributor.get_distributor_state()
 
 	elif cmd == 'get_max_machine_value':
-		#TODO call get_max_machine_value() on distributor
+		print("max machine value: ", service.distributor.get_max_machine_value())
 
 	elif cmd == 'change_max_machine_value':
-		#TODO call set_max_machine_value(new_value) on distributor
 
+		max_val = sys.argv[2] #second argument
+		service.distributor.set_max_machine_value(max_val)
 
 	elif cmd == 'help':
 		#TODO print commands and what they are for
-
+		print("Do something")
 	#TODO discard this after debugging
+
 	elif cmd == 'custom':
+		
 		log = service.logger.handlers
 		for h in log:
 			print(h.format())
 
 	else:
 		sys.exit('Unknown command "%s".' % cmd)
+
+

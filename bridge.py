@@ -19,6 +19,7 @@ class Bridge(object):
         #path.append()
         #print("Building the bridge")
         self.name = name
+        
 	brctl.addbr(name)
      	return None 
 

@@ -27,10 +27,11 @@ from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
 #from taskgen.session import AbstractSession#TODO pfad anpassen
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
-from bridge import *
+from bridge import Bridge as bridge
+from bridge import Tap as trctl
 from subprocess import *
 
-class Distributor():
+class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self, max_machine = 1):
@@ -44,7 +45,7 @@ class Distributor():
 
 
         self._port = 3001
-        self._session_class = QemuSession
+        #self._session_class = QemuSession #What is this? 
         self.logger = logging.getLogger('Distributor')
 
 
@@ -53,13 +54,14 @@ class Distributor():
         #self._bridge = _create_bridge()
         #self._bridge = _create_bridge()
         
-        self._bridge = _create_bridge()
+        self._bridge = Distributor._create_bridge(self)
         self._cleaner = None
 
 
     def _create_bridge(self):
         #This bridge is configured in the interfaces 
-        br = bridge.Bridge("br0")
+        br = bridge("br0")
+        return br 
 
     def _kill_log_killer(self):
             #TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
