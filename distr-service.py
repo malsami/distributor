@@ -10,14 +10,14 @@ class DistributorService(Service):
 		#TODO understand logger and use correct loghandlers
 		self.logger.addHandler(SysLogHandler(address=find_syslog(), facility=SysLogHandler.LOG_DAEMON))
 		self.logger.setLevel(logging.INFO)
-		self.distributor = Distributor()#TODO use this? https://stackoverflow.com/questions/865115/how-do-i-correctly-clean-up-a-python-object
+		self.distributor = Distributor()
 
 
 	def run(self):
 		n = 0
 		while not self.got_sigterm():
 			self.logger.info("I'm working...")
-			#TODO or should the distributor be created in run()
+			
 		self.logger.info("I stopped")
 
 if __name__ == '__main__':
@@ -32,12 +32,16 @@ if __name__ == '__main__':
 
 	if cmd == 'service_start':
 		service.start()
-		with open('/home/hamsch/operating-system/client-tools/service/try1.log', 'w') as f:#only for testing something
-				f.write("still here {}\n".format(0))
+		#with open('/home/hamsch/operating-system/client-tools/service/try1.log', 'w') as f:#only for testing something
+		#		f.write("still here {}\n".format(0))
 		print("i got told to start")
 
 	elif cmd == 'service_stop':
-		#TODO: close distributor first
+		#distributor is cleaned up by garbage collector after the service stops
+		#but we check if it is running
+		if service.distributor.get_distributor_state():
+			#if so we stop it
+			service.distributor.kill_all()
 		service.stop()
 
 	elif cmd == 'service_status':
@@ -47,20 +51,24 @@ if __name__ == '__main__':
 			print("Service is not running.")
 
 	elif cmd == 'add_job':
-		
-		if(len(sys.argv) != 5):
+		#takes an optional session_params argument
+		if(len(sys.argv) < 4):
 			print("Incorrect number of arguments")
 			
 		else: 
 			taskset = sys.argv[2]
 			monitor = sys.argv[3]
-			session_params = sys.argv[4]
-
-			service.distributor.add_job(taskset, monitor, session_params)
+			if (len(sys.argv) == 5):
+				session_params = sys.argv[4]
+				service.distributor.add_job(taskset, monitor, session_params)
+			else:
+				service.distributor.add_job(taskset, monitor)
 
 	elif cmd == 'check_state':
-		
-		service.distributor.get_distributor_state()
+		if service.distributor.get_distributor_state():
+			print("The Distributor is working")
+		else:
+			print("The Distributor is not working")
 
 	elif cmd == 'get_max_machine_value':
 		print("max machine value: ", service.distributor.get_max_machine_value())
@@ -69,12 +77,14 @@ if __name__ == '__main__':
 
 		max_val = sys.argv[2] #second argument
 		service.distributor.set_max_machine_value(max_val)
+		print("new max machine value: ", service.distributor.get_max_machine_value())
 
 	elif cmd == 'help':
 		#TODO print commands and what they are for
-		print("Do something")
+		h = "TODO CREATE HELP OUTPUT HERE"
+		print(h)
+	
 	#TODO discard this after debugging
-
 	elif cmd == 'custom':
 		
 		log = service.logger.handlers
