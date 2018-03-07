@@ -39,5 +39,5 @@ qemu-system-x86_64 -net tap,ifname=$tap,script=no,downscript=no \
  
 qemu_ip=$(arp -n | grep -w -i $mac |awk '{print $1}')
 
-printf "%s %s" $pid $qemu_ip
+printf "%s %s %s" $pid $qemu_ip $mac 
 #>&2 echo $pid 

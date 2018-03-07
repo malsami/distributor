@@ -27,10 +27,11 @@ class Machine(threading.Thread):
 
     def __init__(self, lock, tasksets, port, session_class, bridge, m_running, kill_log):
         self._bridge = bridge
-        self._tap = _create_tap_device()#TODO
+        self._tap = _create_tap_device()
         self._host = ""
         self._kill_log = kill_log
         self._port = port
+        self._qemu_mac = "" #Mac address of qemu instance that it spawns
 
         self._running = m_running #threading.Event() |used to shut instance down
         self._session_class = session_class
@@ -55,6 +56,7 @@ class Machine(threading.Thread):
         self._continue = True
 
         self._pid_dict = {}
+
 
         self._pid = "" 
 
@@ -141,8 +143,9 @@ class Machine(threading.Thread):
     def _create_tap_device(self):
         tap = tap.Tap()
         tap.up()
-        bridge = brctl.findbridge(self.bridge.name)
+        bridge = brctl.findbridge(self._bridge.name)
         bridge.addif(tap.name)
+        return tap 
 
     def _spawn_host(self):
         #TODO
@@ -152,19 +155,21 @@ class Machine(threading.Thread):
         mac = randomize_mac()
 
 
-
-        active_host = Popen(["./check_mac.sh",mac], stdout=PIPE, stderr=PIPE).communicate()[0]
+        #check if host has already spawned a host that is still active. 
+        active_host = Popen(["./check_mac.sh",self._qemu_mac], stdout=PIPE, stderr=PIPE).communicate()[0]
         
-        #script to kill
-        if(active_host in _pid_dict):
-            kill_pid = _pid_dict[active_host]
-            sb.call(["kill", "-9", kill_pid]) #Kill the id
+        #We may not need this as this machine should be in the kill log already. If we get that active_host is still running, we can kill it
+        if(active_host != ''):
+            sb.call(["kill", "-9", self._pid]) #Kill if not already in kill log? 
 
-        pid_and_qemuIP = Popen(["./qemu.sh", name, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+
+        #Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
+        pid_and_qemuIP_mac = Popen(["./qemu.sh", self._tap.name, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
     
     
-        self._pid = pid_and_qemuIP[0]
-        self._host = pid_and_qemuIP[1]
+        self._pid = pid_and_qemuIP_mac[0]
+        self._host = pid_and_qemuIP_mac[1]
+        self._qemu_mac = pid_and_qemuIP_mac[2]
 
 
 
