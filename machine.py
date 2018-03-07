@@ -56,6 +56,8 @@ class Machine(threading.Thread):
 
         self._pid_dict = {}
 
+        self._pid = "" 
+
     def run(self):
         while self._running.is_set():#life loop of Machine
             if not self._session_died:
@@ -161,15 +163,13 @@ class Machine(threading.Thread):
         pid_and_qemuIP = Popen(["./qemu.sh", name, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
     
     
-        pid = pid_and_qemuIP[0]
-        qemu_ip = pid_and_qemuIP[1]
-
-        _pid_dict[pid] = qemu_ip
+        self._pid = pid_and_qemuIP[0]
+        self._host = pid_and_qemuIP[1]
 
 
 
-        if(checked_output !=''):
-            print("success")
+
+        
         #spawns a Qemu/Genode host
         #bridge comes from self
         #should return the ip address of the started host
@@ -177,7 +177,7 @@ class Machine(threading.Thread):
 
     def randomize_mac(): 
         
-        pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True)
+        pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True, stderr = PIPE)
         raw_output = pipe.communicate()
         mac = raw_output[0] #stdout is in 0 of tuple
     

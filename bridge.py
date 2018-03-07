@@ -8,20 +8,18 @@ import os
 
 class Bridge(object):
 
-    name = ""
+	name = ""
 
-    def __init__(self,name):
-        #TODO: create network bridge and keep reference for cleanup
-
-        """ou must have pynetlinux running for this (pip install pynetlinux)
-        #If you are having trouble with imports try the commands below"""
-        #import sys 
+	def __init__(self,name):
         #path.append()
         #print("Building the bridge")
-        self.name = name
+    		self.name = name
         
-	brctl.addbr(name)
-     	return None 
+		brctl.addbr(name)
+     
+
+
+		return None 
 
  
     
@@ -84,7 +82,7 @@ def spawn_hosts_py(name):
 	#print(sys.stdout)
 
 def randomize_mac(): 
-	pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True)
+	pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True, stderr = PIPE)
 	raw_output = pipe.communicate()
 	mac = raw_output[0] #stdout is in 0 of tuple
 	
@@ -128,40 +126,19 @@ def spawn_hosts(name):
 
 
 
+
+
+
+
 if __name__ == '__main__':
-		print("This is the main method\n")
-		#print("I am creating the bridge now\n")
-
-		br = []
-
-		#bridge = Bridge(sys.argv[1])
-
-			#Adding Tap inteface
-
-		bri = brctl.findbridge("br0")
-
-
-		print(bri)
 		
-		tap_one = tap.Tap("aTap")
-
-		#tap_one.up()
-				
-		bri.addif("aTap")
 		
-
-		print(tap_one)
-#		tap_one.up()
-		#if(brctl.findbridge(bridge.name) != None):
-		#	print("Success")
-		
-		#br = brctl.findbridge("theBridge")
-
-
-		print("Tap name: ", tap_one.name)
-
 		#spawn_hosts(tap_one.name)
 
+		#active_host = Popen(["./check_mac.sh",mac], stdout=PIPE, stderr=PIPE).communicate()[0]
+
+		mac = randomize_mac()
+		print(mac)
 		
 		"""for arg in sys.argv[2]:
 			br.append(arg)

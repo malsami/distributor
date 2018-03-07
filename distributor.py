@@ -22,7 +22,9 @@ from itertools import chain
 from math import ceil
 import errno
 
-from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
+
+
+#from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
 #from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
 #from taskgen.session import AbstractSession#TODO pfad anpassen
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
@@ -30,6 +32,12 @@ from machine import Machine
 from bridge import Bridge as bridge
 from bridge import Tap as trctl
 from subprocess import *
+
+
+import sys
+sys.path.append('../')
+from taskgen import * #Complains about syntax if we import individual models 
+
 
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
@@ -71,8 +79,12 @@ class Distributor:
             kill_ip = Popen(["./kill_logger.sh", self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
 
             if(kill_ip != ''):
-                kill_pid = self._machines._pid_dict[kill_ip] #Retrieve pid 
-                sb.call(["kill", "-9", kill_pid]) #Kill the pid
+                for machine in self._machines: 
+                    if(kill_ip == machine._host):
+                        kill_pid = machine._pid 
+                        sb.call(["kill", "-9", kill_pid]) #Kill the pid
+
+                        
 
             #Continue searching
 
