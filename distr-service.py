@@ -66,9 +66,9 @@ if __name__ == '__main__':
 
 	elif cmd == 'check_state':
 		if service.distributor.get_distributor_state():
-			print("The Distributor is working")
+			print("The Distributor is busy")
 		else:
-			print("The Distributor is not working")
+			print("The Distributor is idle")
 
 	elif cmd == 'get_max_machine_value':
 		print("max machine value: ", service.distributor.get_max_machine_value())
@@ -81,7 +81,12 @@ if __name__ == '__main__':
 
 	elif cmd == 'help':
 		#TODO print commands and what they are for
-		h = "TODO CREATE HELP OUTPUT HERE"
+		h = "The distr-service.py is accessible through the following commands:\n"
+		h+= "\"distr-service.py service_start\"		is starting the service in the background\n"
+		h+= "\"distr-service.py service_stop\"		is stopping the background service\n"
+		h+= "\"distr-service.py service_status\"	is outputting whether there is an active background service\n"
+		h+= "\"distr-service.py add_job\"			expects a Taskset, as defined in the taskgen Module,"
+		#TODO add more
 		print(h)
 	
 	#TODO discard this after debugging
@@ -92,6 +97,6 @@ if __name__ == '__main__':
 			print(h.format())
 
 	else:
-		sys.exit('Unknown command "%s".' % cmd)
+		sys.exit('Unknown command "%s".\n Try "distr-service.py help" to view available commands.' % cmd)
 
 
