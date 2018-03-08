@@ -27,7 +27,6 @@ if __name__ == '__main__':
 		sys.exit('Syntax: %s COMMAND' % sys.argv[0])
 
 	cmd = sys.argv[1].lower()
-	#max_val = sys.argv[2] #This may be null
 	service = DistributorService('distr_service', pid_dir='/tmp')
 
 	if cmd == 'service_start':
@@ -80,13 +79,15 @@ if __name__ == '__main__':
 		print("new max machine value: ", service.distributor.get_max_machine_value())
 
 	elif cmd == 'help':
-		#TODO print commands and what they are for
 		h = "The distr-service.py is accessible through the following commands:\n"
 		h+= "\"distr-service.py service_start\"		is starting the service in the background\n"
 		h+= "\"distr-service.py service_stop\"		is stopping the background service\n"
 		h+= "\"distr-service.py service_status\"	is outputting whether there is an active background service\n"
-		h+= "\"distr-service.py add_job\"			expects a Taskset, as defined in the taskgen Module,"
-		#TODO add more
+		h+= "\"distr-service.py add_job\"			expects a Taskset, as defined in the taskgen Module,\n 	a monitor, implementing the AbstractMonitor and\n optional session parameters can also be provided.\n"
+		h+= "\"distr-service.py get_max_machine_value\" 	returns the current number of machines the distributor can start up\n"
+		h+= "\"distr-service.py change_max_machine_value\"	expects a positive integer to set the max machine value to\n"
+		h+= "\"distr-service.py help\"				prints this help message.\n"
+		
 		print(h)
 	
 	#TODO discard this after debugging

@@ -83,9 +83,6 @@ class Distributor:
                     if(kill_ip == machine._host):
                         kill_pid = machine._pid 
                         sb.call(["kill", "-9", kill_pid]) #Kill the pid
-
-                        
-
             #Continue searching
 
 
@@ -176,7 +173,7 @@ class Distributor:
 
         # wrap tasksets into an threadsafe iterator
         with self._taskset_list_lock:
-            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, session_params))#TODO will ich hier immer variants aufrufen?
+            self._tasksets.append(_TaskSetQueue(taskset, monitor, session_params))#TODO will ich hier immer variants aufrufen?
         self._refresh_machines()
 
     def kill_all(self):

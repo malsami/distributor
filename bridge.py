@@ -11,14 +11,8 @@ class Bridge(object):
 	name = ""
 
 	def __init__(self,name):
-        #path.append()
-        #print("Building the bridge")
-    		self.name = name
-        
+		self.name = name
 		brctl.addbr(name)
-     
-
-
 		return None 
 
  
