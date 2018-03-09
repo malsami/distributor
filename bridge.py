@@ -15,8 +15,8 @@ class Bridge(object):
 		brctl.addbr(name)
 		return None 
 
- 
-    
+
+
 
 """Deprecated"""
 class Tap(ifconfig.Interface):
@@ -42,11 +42,24 @@ class Tap(ifconfig.Interface):
 
 
 """Delete bridge from list of bridges"""
-def delete_bridges(names):
-	for br in names:
-		brctl.findbridge(br).delete()
 
-	return None
+def delete_bridges(name):
+
+	list_of_bridge = brctl.list_bridges()
+	
+	for br_name in list_of_bridge:
+		
+		if br_name == name:
+			existing_bridge.delete()
+
+	"""	
+	existing_bridge = brctl.findbridge(name)
+
+	if existing_bridge is not None:
+	
+		existing_bridge.delete()
+"""
+	#return None
 
 
 

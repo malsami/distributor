@@ -29,7 +29,7 @@ import errno
 #from taskgen.session import AbstractSession#TODO pfad anpassen
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
-from bridge import Bridge as bridge
+from bridge import *
 from bridge import Tap as trctl
 from subprocess import *
 
@@ -54,8 +54,13 @@ class Distributor:
 
         self._port = 3001
         #self._session_class = QemuSession #What is this? 
+        
         self.logger = logging.getLogger('Distributor')
-
+        self.hdlr = logging.FileHandler('./log/distributor.log')
+        self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        hdlr.setFormatter(self.formatter)
+        logger.addHandler(self.hdlr)
+        logger.setLevel(logging.DEBUG)
 
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
@@ -67,8 +72,14 @@ class Distributor:
 
 
     def _create_bridge(self):
-        #This bridge is configured in the interfaces 
-        br = bridge("br0")
+        #This bridge is configured in the interfaces
+
+        #Delete any bridges that may exist
+        sb.call(["brctl","delbr","br0"])
+
+        
+        br = Bridge("br0")
+        self.logger.debug("new bridge created")
         return br 
 
     def _kill_log_killer(self):
@@ -83,6 +94,7 @@ class Distributor:
                     if(kill_ip == machine._host):
                         kill_pid = machine._pid 
                         sb.call(["kill", "-9", kill_pid]) #Kill the pid
+                        self.logger.debug("kill_log_killer killed host with ip: {} and pid: {}".format(kill_ip, kill_pid))
             #Continue searching
 
 
@@ -103,7 +115,7 @@ class Distributor:
 
     def get_max_machine_value(self):
         """Returns the current max_machine value."""
-        return self._max_Machine 
+        return self._max_machine 
 
 
 
@@ -115,6 +127,7 @@ class Distributor:
         
         #TODO maybe add upper bound for not crashing the system with large numbers
         if(isinstance(new_value, int) and 0 < new_value):
+            self.logger.info("Adjusted the max_machine value from {} to {}".format(self.max_machine, new_value))
             self._max_machine = new_value
             self._refresh_machines()
         
@@ -147,7 +160,7 @@ class Distributor:
                         machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                         machine.start()
                         self._starter.append((machine,m_running))
-                    self.logger.debug("started {} more machines".format(abs(l)))
+                    self.logger.debug("started {} additional machines".format(abs(l)))
                 elif l < 0:
                     for k in range(0,abs(l)):
                         machine = self._machines.pop()[0]
@@ -174,6 +187,7 @@ class Distributor:
         # wrap tasksets into an threadsafe iterator
         with self._taskset_list_lock:
             self._tasksets.append(_TaskSetQueue(taskset, monitor, session_params))#TODO will ich hier immer variants aufrufen?
+        self.logger.info("a new job was added")
         self._refresh_machines()
 
     def kill_all(self):
@@ -186,6 +200,7 @@ class Distributor:
 
     def _clean_machines(self):
         #cleans up machines which are not running
+        self.logger.debug("cleaner started, will clean up not running machines")
         dead = []
         while self._machines:
             for m in self._machines:

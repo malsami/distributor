@@ -52,7 +52,14 @@ class GenodeSession(AbstractSession):
 
     def __init__(self, host, port):
         self._socket = socket.create_connection((host, port))
-        self.logger = logging.getLogger("GenodeSession")
+        
+        self.logger = logging.getLogger("GenodeSession({})".format(host))
+        self.hdlr = logging.FileHandler('./log/session.log')
+        self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        hdlr.setFormatter(self.formatter)
+        logger.addHandler(self.hdlr)
+        logger.setLevel(logging.DEBUG)
+
         self.logger.debug("Connection establishment")
         self._socket.settimeout(10.0) # wait 10 seconds for responses...
 

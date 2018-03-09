@@ -33,7 +33,12 @@ class Machine(threading.Thread):
 		self._session = None
 		self._session_params = None
 
-		self._logger = logging.getLogger("Distributor({})".format(host))#TODO no host here yet
+		self._logger = logging.getLogger("Machine({})".format(self._tap.name))
+		self.hdlr = logging.FileHandler('./log/machine.log')
+		self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+		hdlr.setFormatter(self.formatter)
+		logger.addHandler(self.hdlr)
+		logger.setLevel(logging.DEBUG)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
