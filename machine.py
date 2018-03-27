@@ -9,6 +9,8 @@ import errno
 import time
 from subprocess import * 
 import subprocess as sb
+from bridge import Tap
+from sessions.genode import * 
 
 class Machine(threading.Thread):
 	# Starts up a Qemu instance with Genode.
@@ -21,7 +23,7 @@ class Machine(threading.Thread):
 
 	def __init__(self, lock, tasksets, port, session_class, bridge, m_running, kill_log):
 		self._bridge = bridge
-		self._tap = _create_tap_device()
+		self._tap = self._create_tap_device()
 		self._host = ""
 		self._kill_log = kill_log
 		self._port = port
@@ -140,7 +142,7 @@ class Machine(threading.Thread):
 		self.logger.info("Machine with host  {} is closed.".format(self._host))
 
 	def _create_tap_device(self):
-		tap = tap.Tap()
+		tap = Tap()
 		tap.up()
 		bridge = brctl.findbridge(self._bridge.name)
 		bridge.addif(tap.name)

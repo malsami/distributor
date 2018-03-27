@@ -23,11 +23,11 @@ class Tap(ifconfig.Interface):
 
 	name = ""
 
-	def __init__(self,name):
+	def __init__(self):
 
-		self.name = name 
+		#self.name = name 
 		#print("Built Tap object", 'name', 'blood')
-		tap.Tap(name)
+		tap.Tap()
 		return None 
 
 

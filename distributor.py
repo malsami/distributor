@@ -15,7 +15,7 @@ import subprocess
 import copy
 import socket
 from multiprocessing import Queue as queue 
-#from queue import Empty, Queue, Full
+from queue import Empty, Queue, Full
 #from collections.abc import Mapping
 from ipaddress import ip_network, ip_address
 from itertools import chain
@@ -23,20 +23,18 @@ from math import ceil
 import errno
 
 
-
-#from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
-#from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
-#from taskgen.session import AbstractSession#TODO pfad anpassen
+import sys
+sys.path.append('../')
+from taskgen.taskset import TaskSet
+from monitor import AbstractMonitor
+from session import AbstractSession
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
 from bridge import *
 from bridge import Tap as trctl
 from subprocess import *
+import importlib
 
-
-import sys
-sys.path.append('../')
-from taskgen import * #Complains about syntax if we import individual models 
 
 
 class Distributor:
@@ -52,7 +50,7 @@ class Distributor:
 
 
         self._port = 3001
-        #self._session_class = QemuSession #What is this? 
+        self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
         
         self.logger = logging.getLogger('Distributor')
         self.hdlr = logging.FileHandler('./log/distributor.log')
@@ -148,23 +146,25 @@ class Distributor:
                         machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                         machine.start()
                         self._machines.append((machine, m_running))
-                self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
-                self.logger.debug("started {} machines".format(len(self._machines)))
-            
+                    self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
+                    self.logger.debug("started {} machines".format(len(self._machines)))
+                
+                else:
+                    l = self._max_machine - len(self._machines)
+                    if l > 0:
+                        for c in range(0,l):
+                            m_running = threading.Event().set() #initially set to True
+                            machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                            machine.start()
+                            self._starter.append((machine,m_running))
+                        self.logger.debug("started {} additional machines".format(abs(l)))
+                    elif l < 0:
+                        for k in range(0,abs(l)):
+                            machine = self._machines.pop()[0]
+                            machine.close()
+                        self.logger.debug("closed {} machines".format(abs(l)))
             else:
-                l = self._max_machine - len(self._machines)
-                if l > 0:
-                    for c in range(0,l):
-                        m_running = threading.Event().set() #initially set to True
-                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-                        machine.start()
-                        self._starter.append((machine,m_running))
-                    self.logger.debug("started {} additional machines".format(abs(l)))
-                elif l < 0:
-                    for k in range(0,abs(l)):
-                        machine = self._machines.pop()[0]
-                        machine.close()
-                    self.logger.debug("closed {} machines".format(abs(l)))
+                self.logger.debug("no machines currently running")
 
     def add_job(self, taskset, monitor = None, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()

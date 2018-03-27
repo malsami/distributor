@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../')
 from taskgen.task import Task
 from taskgen.taskset import TaskSet, BlockTaskSet
 from taskgen.blocks import *

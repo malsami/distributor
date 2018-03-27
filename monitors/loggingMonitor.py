@@ -1,5 +1,8 @@
-from taskgen.monitor import AbstractMonitor
 
+import sys
+sys.path.append('../')
+from monitor import AbstractMonitor
+import logging
 
 class LoggingMonitor(AbstractMonitor):
     
@@ -7,9 +10,9 @@ class LoggingMonitor(AbstractMonitor):
         self.logger = logging.getLogger('OutputMonitorLogger')
         self.hdlr = logging.FileHandler('./log/monitor.log')
         self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        hdlr.setFormatter(self.formatter)
-        logger.addHandler(self.hdlr)
-        logger.setLevel(logging.DEBUG)
+        self.hdlr.setFormatter(self.formatter)
+        self.logger.addHandler(self.hdlr)
+        self.logger.setLevel(logging.DEBUG)
         
     def __taskset_event__(self, taskset):
         pass
