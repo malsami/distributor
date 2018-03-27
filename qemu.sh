@@ -3,7 +3,7 @@
 #Naked Variables 
 tap="$1"
 mac="$2"
-image="../build/genode-focnados_pbxa9/var/run/dom0-HW/image.elf" #input genode image
+image="../image.elf" #input genode image
 
 #echo $tap  
 #echo "executed qemu script"

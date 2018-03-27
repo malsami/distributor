@@ -44,7 +44,6 @@ class Distributor:
     
     def __init__(self, max_machine = 1):
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        #self._machine_killer = threading.Thread(target = Distributor._kill_log_killer, args = (self,))
         
         self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
         
@@ -58,9 +57,9 @@ class Distributor:
         self.logger = logging.getLogger('Distributor')
         self.hdlr = logging.FileHandler('./log/distributor.log')
         self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        hdlr.setFormatter(self.formatter)
-        logger.addHandler(self.hdlr)
-        logger.setLevel(logging.DEBUG)
+        self.hdlr.setFormatter(self.formatter)
+        self.logger.addHandler(self.hdlr)
+        self.logger.setLevel(logging.DEBUG)
 
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
@@ -127,7 +126,7 @@ class Distributor:
         
         #TODO maybe add upper bound for not crashing the system with large numbers
         if(isinstance(new_value, int) and 0 < new_value):
-            self.logger.info("Adjusted the max_machine value from {} to {}".format(self.max_machine, new_value))
+            self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
             self._max_machine = new_value
             self._refresh_machines()
         
