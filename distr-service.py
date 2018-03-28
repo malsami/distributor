@@ -5,7 +5,6 @@ from logging.handlers import SysLogHandler
 import time
 from distributor import Distributor
 import traceback
-import os
 
 """class DistributorService(Service):
 	def __init__(self, *args, **kwargs):
@@ -20,27 +19,21 @@ class MyService(Service):
 		#TODO understand logger and use correct loghandlers
 		self.logger.addHandler(logging.FileHandler("./log/service.log"))
 		self.logger.setLevel(logging.INFO)
-		self.script_dir = os.path.dirname(os.path.realpath(__file__))
-		#self.distributor = None
 		try:
-			#if self.distributor is None:
-			self.distributor = Distributor()
-			with open('{}/log/service_run_test_file.log'.format(self.script_dir), 'a') as f:#only for testing something
-				f.write("up in init and can run  {} machines\n".format(self.distributor.get_max_machine_value()))
+			distributor = Distributor()
+			with open('/home/hamsch/operating-system/client-tools/distributor_service/log/service_run_test_file.log', 'a') as f:#only for testing something
+				f.write("up in init and can run  {} machines\n".format(distributor.get_max_machine_value()))
 		except Exception as e:
 			self.logger.error(traceback.format_exc())
-		self.logger.info("finished init at {}".format(self.script_dir))
-
 
 	def run(self):
 		n = 0
 		
 		while not self.got_sigterm():
-			with open('{}/log/service_run_test_file.log'.format(self.script_dir), 'a') as f:#only for testing something
-				f.write("up and can run  {} machines\n".format(self.distributor.get_max_machine_value()))
+			with open('/home/hamsch/operating-system/client-tools/distributor_service/log/service_run_test_file.log', 'a') as f:#only for testing something
+				f.write("up and can run  {} machines\n".format(n))
 			self.logger.info("I'm working...")
 			n+=1
-			self.distributor.set_max_machine_value(n)
 			time.sleep(1)
 			
 		self.logger.info("I stopped")

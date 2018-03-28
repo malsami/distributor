@@ -9,8 +9,7 @@ from collections import Iterable
 import logging
 import xmltodict
 from abc import ABCMeta, abstractmethod
-from session import AbstractSession
-sys.path.append('../')
+from taskgen.session import AbstractSession
 from taskgen.taskset import TaskSet
 from taskgen.task import Job
 import taskgen
@@ -156,11 +155,10 @@ class GenodeSession(AbstractSession):
                 elif _type == "JOBS_DONE":
                     #TODO this is fine, but aparently not working on the genode system.
                     #if we receive this, we do nothing so far
-                    if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None):
+                    if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
                     	self.logger.critical("JOBS_DONE from Genode is received but jobs is not number of jobs long yet.")
                 elif _type == "NOT_SCHEDULED":
                 	#TODO kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
-                    pass
                 else:
                     self.logger.critical("Unknown event type {}".format(_type))
 
