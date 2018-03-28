@@ -15,28 +15,26 @@ import subprocess
 import copy
 import socket
 from multiprocessing import Queue as queue 
-#from queue import Empty, Queue, Full
+from queue import Empty, Queue, Full
 #from collections.abc import Mapping
 from ipaddress import ip_network, ip_address
 from itertools import chain
 from math import ceil
 import errno
 
-
-
-#from taskgen import * #TaskSet.TaskSet #TODO pfad anpassen
-#from taskgen.monitor import AbstractMonitor#TODO pfad anpassen
-#from taskgen.session import AbstractSession#TODO pfad anpassen
+import os
+import sys
+sys.path.append('../')
+from taskgen.taskset import TaskSet
+from monitor import AbstractMonitor
+from session import AbstractSession
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
 from bridge import *
 from bridge import Tap as trctl
 from subprocess import *
+import importlib
 
-
-import sys
-sys.path.append('../')
-from taskgen import * #Complains about syntax if we import individual models 
 
 
 class Distributor:
@@ -44,23 +42,22 @@ class Distributor:
     
     def __init__(self, max_machine = 1):
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        #self._machine_killer = threading.Thread(target = Distributor._kill_log_killer, args = (self,))
         
         self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
         
         self._max_machine = max_machine
         self._machines = []
 
-
+        self.script_dir = os.path.dirname(os.path.realpath(__file__))
         self._port = 3001
-        #self._session_class = QemuSession #What is this? 
+        self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
         
         self.logger = logging.getLogger('Distributor')
-        self.hdlr = logging.FileHandler('./log/distributor.log')
+        self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
         self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        hdlr.setFormatter(self.formatter)
-        logger.addHandler(self.hdlr)
-        logger.setLevel(logging.DEBUG)
+        self.hdlr.setFormatter(self.formatter)
+        self.logger.addHandler(self.hdlr)
+        self.logger.setLevel(logging.DEBUG)
 
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
@@ -69,6 +66,7 @@ class Distributor:
         
         self._bridge = Distributor._create_bridge(self)
         self._cleaner = None
+        self.machinecounter = 0
 
 
     def _create_bridge(self):
@@ -127,7 +125,7 @@ class Distributor:
         
         #TODO maybe add upper bound for not crashing the system with large numbers
         if(isinstance(new_value, int) and 0 < new_value):
-            self.logger.info("Adjusted the max_machine value from {} to {}".format(self.max_machine, new_value))
+            self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
             self._max_machine = new_value
             self._refresh_machines()
         
@@ -146,26 +144,30 @@ class Distributor:
                 if not self._machines:
                     for c in range(0, self._max_machine):
                         m_running = threading.Event().set() #initially set to True so variable is speaking
-                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                        machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                         machine.start()
+                        self.machinecounter += 1
                         self._machines.append((machine, m_running))
-                self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
-                self.logger.debug("started {} machines".format(len(self._machines)))
-            
+                    self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
+                    self.logger.debug("started {} machines".format(len(self._machines)))
+                
+                else:
+                    l = self._max_machine - len(self._machines)
+                    if l > 0:
+                        for c in range(0,l):
+                            m_running = threading.Event().set() #initially set to True
+                            machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                            machine.start()
+                            self.machinecounter += 1
+                            self._starter.append((machine,m_running))
+                        self.logger.debug("started {} additional machines".format(abs(l)))
+                    elif l < 0:
+                        for k in range(0,abs(l)):
+                            machine = self._machines.pop()[0]
+                            machine.close()
+                        self.logger.debug("closed {} machines".format(abs(l)))
             else:
-                l = self._max_machine - len(self._machines)
-                if l > 0:
-                    for c in range(0,l):
-                        m_running = threading.Event().set() #initially set to True
-                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-                        machine.start()
-                        self._starter.append((machine,m_running))
-                    self.logger.debug("started {} additional machines".format(abs(l)))
-                elif l < 0:
-                    for k in range(0,abs(l)):
-                        machine = self._machines.pop()[0]
-                        machine.close()
-                    self.logger.debug("closed {} machines".format(abs(l)))
+                self.logger.debug("no machines currently running")
 
     def add_job(self, taskset, monitor = None, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
