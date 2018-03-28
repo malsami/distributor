@@ -22,7 +22,7 @@ from itertools import chain
 from math import ceil
 import errno
 
-
+import os
 import sys
 sys.path.append('../')
 from taskgen.taskset import TaskSet
@@ -48,12 +48,12 @@ class Distributor:
         self._max_machine = max_machine
         self._machines = []
 
-
+        self.script_dir = os.path.dirname(os.path.realpath(__file__))
         self._port = 3001
         self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
         
         self.logger = logging.getLogger('Distributor')
-        self.hdlr = logging.FileHandler('./log/distributor.log')
+        self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
         self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         self.hdlr.setFormatter(self.formatter)
         self.logger.addHandler(self.hdlr)
@@ -66,6 +66,7 @@ class Distributor:
         
         self._bridge = Distributor._create_bridge(self)
         self._cleaner = None
+        self.machinecounter = 0
 
 
     def _create_bridge(self):
@@ -143,8 +144,9 @@ class Distributor:
                 if not self._machines:
                     for c in range(0, self._max_machine):
                         m_running = threading.Event().set() #initially set to True so variable is speaking
-                        machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                        machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                         machine.start()
+                        self.machinecounter += 1
                         self._machines.append((machine, m_running))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
                     self.logger.debug("started {} machines".format(len(self._machines)))
@@ -154,8 +156,9 @@ class Distributor:
                     if l > 0:
                         for c in range(0,l):
                             m_running = threading.Event().set() #initially set to True
-                            machine = Machine(self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                            machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                             machine.start()
+                            self.machinecounter += 1
                             self._starter.append((machine,m_running))
                         self.logger.debug("started {} additional machines".format(abs(l)))
                     elif l < 0:
