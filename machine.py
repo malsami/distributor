@@ -4,14 +4,11 @@ It does everything from creating a Qemu instance (connected to a provided bridge
 to sending tasksets while listening for events from genode.
 
 """
-import os
 import threading
 import errno
 import time
 from subprocess import * 
 import subprocess as sb
-from pynetlinux import *
-from sessions.genode import * 
 
 class Machine(threading.Thread):
 	# Starts up a Qemu instance with Genode.
@@ -22,9 +19,9 @@ class Machine(threading.Thread):
 
 	# This class is only instatiated in `_refresh_starter`.
 
-	def __init__(self,id, lock, tasksets, port, session_class, bridge, m_running, kill_log):
+	def __init__(self, lock, tasksets, port, session_class, bridge, m_running, kill_log):
 		self._bridge = bridge
-		self._tap = self._create_tap_device("tap"+str(id))
+		self._tap = _create_tap_device()
 		self._host = ""
 		self._kill_log = kill_log
 		self._port = port
@@ -36,9 +33,8 @@ class Machine(threading.Thread):
 		self._session = None
 		self._session_params = None
 
-		self.script_dir = os.path.dirname(os.path.realpath(__file__))
 		self._logger = logging.getLogger("Machine({})".format(self._tap.name))
-		self.hdlr = logging.FileHandler('{}/log/machine.log'.format(self.script_dir))
+		self.hdlr = logging.FileHandler('./log/machine.log')
 		self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 		hdlr.setFormatter(self.formatter)
 		logger.addHandler(self.hdlr)
@@ -143,12 +139,12 @@ class Machine(threading.Thread):
 		# remove tap device? or is it gone anyway?
 		self.logger.info("Machine with host  {} is closed.".format(self._host))
 
-	def _create_tap_device(self,name):
-		tap_dev = tap.Tap(name)
-		tap_dev.up()
+	def _create_tap_device(self):
+		tap = tap.Tap()
+		tap.up()
 		bridge = brctl.findbridge(self._bridge.name)
-		bridge.addif(tap_dev.name)
-		return tap_dev 
+		bridge.addif(tap.name)
+		return tap 
 
 	def _spawn_host(self):
 		#check if macadress currently active(host already/still up? if yes, kill it)
