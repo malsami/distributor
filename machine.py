@@ -23,6 +23,7 @@ class Machine(threading.Thread):
 	# This class is only instatiated in `_refresh_starter`.
 
 	def __init__(self,id, lock, tasksets, port, session_class, bridge, m_running, kill_log):
+		super(Machine, self).__init__()
 		self._bridge = bridge
 		self._tap = self._create_tap_device("tap"+str(id))
 		self._host = ""
@@ -30,19 +31,19 @@ class Machine(threading.Thread):
 		self._port = port
 		self._qemu_mac = "" #Mac address of qemu instance that it spawns
 
-		self._running = m_running #threading.Event() |used to shut instance down
+		self.inactive = m_running #threading.Event() |used to shut instance down
 		self._session_class = session_class
 		self._session_died = True #state of the current session
 		self._session = None
 		self._session_params = None
 
 		self.script_dir = os.path.dirname(os.path.realpath(__file__))
-		self._logger = logging.getLogger("Machine({})".format(self._tap.name))
+		self._logger = logging.getLogger("Machine({})".format(self._tap))
 		self.hdlr = logging.FileHandler('{}/log/machine.log'.format(self.script_dir))
 		self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-		hdlr.setFormatter(self.formatter)
-		logger.addHandler(self.hdlr)
-		logger.setLevel(logging.DEBUG)
+		self.hdlr.setFormatter(self.formatter)
+		self._logger.addHandler(self.hdlr)
+		self._logger.setLevel(logging.DEBUG)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
@@ -54,8 +55,8 @@ class Machine(threading.Thread):
 
 		self._listening = threading.Event()#initially false
 		self._listener_thread = None
-		self._started = False
-		self._stopped = True
+		self.started = False
+		self.stopped = True
 		self._continue = True
 
 		self._pid_dict = {}
@@ -64,16 +65,16 @@ class Machine(threading.Thread):
 		self._pid = "" 
 
 	def run(self):
-		while self._running.is_set():#life loop of Machine
+		while not self.inactive.is_set():#life loop of Machine
 			if not self._session_died:
 				try:
 					if self._current_set is not None:
-						if not self._started and not self._session.running():
+						if not self.started and not self._session.running():
 							# if not started -> session.start()
 							try:
 								self._session.start(self._current_set, *self._session_params)
-								self._started = True
-								self._stopped = False
+								self.started = True
+								self.stopped = False
 								# inform the monitor about the start.
 								if self._monitor is not None:
 									self._monitor.__taskset_start__(self._current_set)
@@ -83,7 +84,7 @@ class Machine(threading.Thread):
 								self._logger.debug(e)
 								#should not happen because we check the type in distributor.add_job()
 						
-						elif not self._stopped and not self._session.running():#TODO make running great again otherwise we need a timelimit
+						elif not self.stopped and not self._session.running():#TODO make running great again otherwise we need a timelimit
 							self._session.stop()
 							if self._monitor is not None:
 								self._monitor.__taskset_finish__(self._current_set)
@@ -102,13 +103,13 @@ class Machine(threading.Thread):
 							try:
 								if not self._get_taskset():
 									#no more tasksets, go kill yourself!
-									self._running.clear()
+									self.inactive.set()
 							except StopIteration:
 								self._logger.debug("StopIteration: Last taskset was stolen.")
 								if self._current_set is not None:#should never be the case, but better save than sorry
 									self._logger.debug("This is weired, a set was appointed while a StopIteration happened. The Taskset was lost.")
 						else:
-							self._running.clear()#initiating shutdown with no _current_set
+							self.inactive.set()#initiating shutdown with no _current_set
 				except socket.error as e:
 					self._logger.debug("run says: Host at {} died.".format(self._host))
 					#besides this we do nothing as the listener will run into the same issue
@@ -139,33 +140,42 @@ class Machine(threading.Thread):
 
 		with open(self._kill_log, "a") as log:
 			log.write(self._host + "\n")
-		self.logger.info("Qemu instance of {} was killed.".format(self._host))
+		self._logger.info("Qemu instance of {} was killed.".format(self._host))
 		# remove tap device? or is it gone anyway?
 		self.logger.info("Machine with host  {} is closed.".format(self._host))
 
 	def _create_tap_device(self,name):
-		tap_dev = tap.Tap(name)
-		tap_dev.up()
-		bridge = brctl.findbridge(self._bridge.name)
-		bridge.addif(tap_dev.name)
-		return tap_dev 
+		#tap_dev = tap.Tap(name)
+		#tap_dev.up()
+		tap_name = name 
+
+		sb.call(["ip", "tuntap", "add", "name" , tap_name, "mode", "tap"])
+
+		#Add tap device to bridge
+		#bridge = brctl.findbridge(self._bridge.name)
+		#bridge.addif(name)
+		sb.call(["brctl", "addif", self._bridge.name, tap_name])
+
+		sb.call(["ip", "link", "set", "dev", tap_name, "up"])
+		return tap_name 
 
 	def _spawn_host(self):
 		#check if macadress currently active(host already/still up? if yes, kill it)
 
 		#Generate random mac address
-		mac = randomize_mac()
+		mac = self.randomize_mac()
 
 		#check if host has already spawned a host that is still active. 
-		active_host = Popen(["./check_mac.sh",self._qemu_mac], stdout=PIPE, stderr=PIPE).communicate()[0]
+		active_host = Popen(["{}/check_mac.sh".format(self.script_dir),self._qemu_mac], stdout=PIPE, stderr=PIPE).communicate()[0]
 
 		#We may not need this as this machine should be in the kill log already. If we get that active_host is still running, we can kill it
-		if(active_host != ''):
-			sb.call(["kill", "-9", self._pid]) #Kill if not already in kill log? 
+		#if(active_host != ''):
+		#	sb.call(["kill", "-9", self._pid]) #Kill if not already in kill log? 
 
 		#Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
-		pid_and_qemuIP_mac = Popen(["./qemu.sh", self._tap.name, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+		pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), self._tap, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
 
+		self._logger.debug(pid_and_qemuIP_mac)
 		self._pid = pid_and_qemuIP_mac[0]
 		self._host = pid_and_qemuIP_mac[1]
 		self._qemu_mac = pid_and_qemuIP_mac[2]
@@ -174,7 +184,7 @@ class Machine(threading.Thread):
 		#bridge comes from self
 
 
-	def randomize_mac():
+	def randomize_mac(self):
 		pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True, stderr = PIPE)
 		raw_output = pipe.communicate()
 		mac = raw_output[0] #stdout is in 0 of tuple

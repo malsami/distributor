@@ -41,16 +41,7 @@ class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self, max_machine = 1):
-        self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        
-        self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
-        
-        self._max_machine = max_machine
-        self._machines = []
-
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
-        self._port = 3001
-        self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
         
         self.logger = logging.getLogger('Distributor')
         self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
@@ -58,6 +49,17 @@ class Distributor:
         self.hdlr.setFormatter(self.formatter)
         self.logger.addHandler(self.hdlr)
         self.logger.setLevel(logging.DEBUG)
+
+        self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
+        
+        
+        self._max_machine = max_machine
+        self._machines = []
+
+        self._port = 3001
+        self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
+        
+        
 
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
@@ -67,32 +69,43 @@ class Distributor:
         self._bridge = Distributor._create_bridge(self)
         self._cleaner = None
         self.machinecounter = 0
-
+        self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
+        
 
     def _create_bridge(self):
         #This bridge is configured in the interfaces
 
         #Delete any bridges that may exist
+        sb.call(["ifconfig", "br0", "down"])
         sb.call(["brctl","delbr","br0"])
 
+        #br_name = "br0"
+
+        #sb.call(["brctl", "addbr" , br_name])
         
         br = Bridge("br0")
+        sb.call(["ip","addr", "add", "10.200.40.1/21", "dev", "br0"])
         self.logger.debug("new bridge created")
         return br 
 
     def _kill_log_killer(self):
+        self.logger.debug("spawned kill log killer")
             #TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
         kill_pid = ''
          
         while True: 
-            kill_ip = Popen(["./kill_logger.sh", self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
+            self.logger.debug("Entering kill function")
+            kill_ip = Popen(["{}/kill_logger.sh".format(self.script_dir), self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
 
             if(kill_ip != ''):
                 for machine in self._machines: 
                     if(kill_ip == machine._host):
                         kill_pid = machine._pid 
+                        self.logger.debug("Trying to kill pid: {} ip:{}".format(kill_pid,kill_ip))
                         sb.call(["kill", "-9", kill_pid]) #Kill the pid
                         self.logger.debug("kill_log_killer killed host with ip: {} and pid: {}".format(kill_ip, kill_pid))
+                kill_ip = ""
+                kill_pid = ""
             #Continue searching
 
 
@@ -143,7 +156,8 @@ class Distributor:
             if working:
                 if not self._machines:
                     for c in range(0, self._max_machine):
-                        m_running = threading.Event().set() #initially set to True so variable is speaking
+                        m_running = threading.Event()
+                        self.logger.debug("type of m_running {}".format(type(m_running)))
                         machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
                         machine.start()
                         self.machinecounter += 1

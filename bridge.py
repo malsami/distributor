@@ -1,3 +1,6 @@
+#!/usr/bin/python3.5
+
+
 from pynetlinux import *
 from subprocess import *
 import subprocess as sb
@@ -165,7 +168,7 @@ if __name__ == '__main__':
 		#else build bridges 
 		bridge = Bridge(sys.argv[1])
 
-			#Adding Tap inteface
+		Adding Tap inteface
 		my_tap = bridge.Tap("myTap")
 
 		my_tap.up() #Set interface to up 

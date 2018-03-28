@@ -22,22 +22,18 @@ image="../image.elf" #input genode image
 #echo "Execuring Qemu Script"
 
 
-qemu-system-x86_64 -net tap,ifname=$tap,script=no,downscript=no \
-		            -net nic,macaddr=$mac \
-		            -net nic,model=lan9118 \
-		            -nographic \
-		            -smp 2 \
-		            -m 1000 \
-		            -M realview-pbx-a9 \
-		            -kernel $image &
-    pid=$!
+screen -dmS $tap bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac -net nic,model=lan9118 -nographic -smp 2 -m 1000 -M realview-pbx-a9 -kernel $image"
+pid="$(ps -ef | grep -ni -e "SCREEN -dmS $tap" | grep -v "grep" | awk '{print $2}')"
 
 #echo "Executing Done" 
 
+sleep 20
+
+ 
 
 
  
-qemu_ip=$(arp -n | grep -w -i $mac |awk '{print $1}')
+qemu_ip=$(nmap 10.200.45.00\24 >/dev/null && arp -n | grep -w -i $mac |awk '{print $1}')
 
 printf "%s %s %s" $pid $qemu_ip $mac 
 #>&2 echo $pid 
