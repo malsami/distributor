@@ -41,6 +41,7 @@ class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self, max_machine = 1):
+        self.max_allowed_machines = 7 #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         
         self.logger = logging.getLogger('Distributor')
@@ -63,30 +64,16 @@ class Distributor:
 
         self._taskset_list_lock = threading.Lock()
         self._tasksets = []
-        #self._bridge = _create_bridge()
-        #self._bridge = _create_bridge()
         
-        self._bridge = Distributor._create_bridge(self)
+        self._bridge = "br0"
         self._cleaner = None
-        self.machinecounter = 0
-        self._machine_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
+        self.machinestate={}
+        for i in range(self.max_allowed_machines):
+            index=i+1
+            self.machinestate[index]=0
+        self._qemu_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
         
 
-    def _create_bridge(self):
-        #This bridge is configured in the interfaces
-
-        #Delete any bridges that may exist
-        sb.call(["ifconfig", "br0", "down"])
-        sb.call(["brctl","delbr","br0"])
-
-        #br_name = "br0"
-
-        #sb.call(["brctl", "addbr" , br_name])
-        
-        br = Bridge("br0")
-        sb.call(["ip","addr", "add", "10.200.40.1/21", "dev", "br0"])
-        self.logger.debug("new bridge created")
-        return br 
 
     def _kill_log_killer(self):
         self.logger.debug("spawned kill log killer")
@@ -100,11 +87,14 @@ class Distributor:
             if(kill_ip != ''):
                 for machine in self._machines: 
                     if(kill_ip == machine._host):
-                        kill_pid = machine._pid 
-                        self.logger.debug("Trying to kill pid: {} ip:{}".format(kill_pid,kill_ip))
-                        sb.call(["kill", "-9", kill_pid]) #Kill the pid
-                        self.logger.debug("kill_log_killer killed host with ip: {} and pid: {}".format(kill_ip, kill_pid))
+                        kill_pid = machine._pid
+                        kill_id = machine.id
+                        self.logger.debug("Trying to kill pid: {} id:{}".format(kill_pid,kill_id))
+                        #TODO maybe we should catch the output from the next line an log it, just in case
+                        Popen(["{}/clean_id.sh".format(self.script_dir), kill_id, kill_pid])
+                        self.logger.debug("kill_log_killer killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))
                 kill_ip = ""
+                kill_id = ""
                 kill_pid = ""
             #Continue searching
 
@@ -136,12 +126,14 @@ class Distributor:
         :raises ValueError: new_value is not a natural number
         """
         
-        #TODO maybe add upper bound for not crashing the system with large numbers
         if(isinstance(new_value, int) and 0 < new_value):
-            self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
-            self._max_machine = new_value
+            if new_value > self.max_allowed_machines:
+                self.logger.info("the new value in set_max_machine_value was {}, thus bigger than the max_allowed_machines of {} the _max_machine value was set to the max_allowed_machines value".format(new_value,self.max_allowed_machines))
+                self._max_machine = self.max_allowed_machines
+            else:
+                self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
+                self._max_machine = new_value
             self._refresh_machines()
-        
         else:
             raise ValueError("The new max_machine value is not an integer greater than zero.")
 
@@ -156,12 +148,19 @@ class Distributor:
             if working:
                 if not self._machines:
                     for c in range(0, self._max_machine):
-                        m_running = threading.Event()
-                        self.logger.debug("type of m_running {}".format(type(m_running)))
-                        machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-                        machine.start()
-                        self.machinecounter += 1
-                        self._machines.append((machine, m_running))
+                        new_id = ""
+                        found = False
+                        for k, v in self.machinestate.items():
+                            if not found:
+                                if v == 0:
+                                    found = True
+                                    new_id = k
+                                    self.machinestate[k] = 1
+                        if new_id != "":
+                            m_running = threading.Event()
+                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                            machine.start()
+                            self._machines.append((machine, m_running, new_id))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
                     self.logger.debug("started {} machines".format(len(self._machines)))
                 
@@ -169,16 +168,26 @@ class Distributor:
                     l = self._max_machine - len(self._machines)
                     if l > 0:
                         for c in range(0,l):
-                            m_running = threading.Event().set() #initially set to True
-                            machine = Machine(self.machinecounter, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
-                            machine.start()
-                            self.machinecounter += 1
-                            self._starter.append((machine,m_running))
+                            new_id = ""
+                            found = False
+                            for k, v in self.machinestate.items():
+                                if not found:
+                                    if v == 0:
+                                        found = True
+                                        new_id = k
+                                        self.machinestate[k] = 1
+                            if new_id != "":
+                                m_running = threading.Event()
+                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                                machine.start()
+                                self._starter.append((machine,m_running, new_id))
                         self.logger.debug("started {} additional machines".format(abs(l)))
                     elif l < 0:
                         for k in range(0,abs(l)):
-                            machine = self._machines.pop()[0]
+                            triple = self._machines.pop()
+                            machine=triple[0]
                             machine.close()
+                            self.machinestate[triple[2]]=0
                         self.logger.debug("closed {} machines".format(abs(l)))
             else:
                 self.logger.debug("no machines currently running")
@@ -223,6 +232,7 @@ class Distributor:
                 if not m[1].is_set():
                     dead.append(m)
             for d in dead:
+                self.machinestate[d[2]]=0
                 self._machines.remove(d)
             dead = []
 

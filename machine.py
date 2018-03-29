@@ -22,10 +22,11 @@ class Machine(threading.Thread):
 
 	# This class is only instatiated in `_refresh_starter`.
 
-	def __init__(self,id, lock, tasksets, port, session_class, bridge, m_running, kill_log):
+	def __init__(self, id, lock, tasksets, port, session_class, bridge, m_running, kill_log):
 		super(Machine, self).__init__()
-		self._bridge = bridge
-		self._tap = self._create_tap_device("tap"+str(id))
+		#self._bridge = bridge
+		#self._tap = self._create_tap_device("tap"+str(id))
+		self.id = id
 		self._host = ""
 		self._kill_log = kill_log
 		self._port = port
@@ -59,9 +60,7 @@ class Machine(threading.Thread):
 		self.stopped = True
 		self._continue = True
 
-		self._pid_dict = {}
-
-
+		#self._pid_dict = {}
 		self._pid = "" 
 
 	def run(self):
@@ -115,7 +114,8 @@ class Machine(threading.Thread):
 					#besides this we do nothing as the listener will run into the same issue
 
 			else:
-				self._spawn_host()#TODO: adapt method call
+				while not self._spawn_host():
+					pass
 				while not self._revive_session():
 					time.sleep(5)
 
@@ -144,54 +144,37 @@ class Machine(threading.Thread):
 		# remove tap device? or is it gone anyway?
 		self.logger.info("Machine with host  {} is closed.".format(self._host))
 
-	def _create_tap_device(self,name):
-		#tap_dev = tap.Tap(name)
-		#tap_dev.up()
-		tap_name = name 
-
-		sb.call(["ip", "tuntap", "add", "name" , tap_name, "mode", "tap"])
-
-		#Add tap device to bridge
-		#bridge = brctl.findbridge(self._bridge.name)
-		#bridge.addif(name)
-		sb.call(["brctl", "addif", self._bridge.name, tap_name])
-
-		sb.call(["ip", "link", "set", "dev", tap_name, "up"])
-		return tap_name 
-
 	def _spawn_host(self):
 		#check if macadress currently active(host already/still up? if yes, kill it)
 
 		#Generate random mac address
-		mac = self.randomize_mac()
+		#mac = self.randomize_mac()
 
 		#check if host has already spawned a host that is still active. 
-		active_host = Popen(["{}/check_mac.sh".format(self.script_dir),self._qemu_mac], stdout=PIPE, stderr=PIPE).communicate()[0]
+		#active_host = Popen(["{}/check_mac.sh".format(self.script_dir),self._qemu_mac], stdout=PIPE, stderr=PIPE).communicate()[0]
 
 		#We may not need this as this machine should be in the kill log already. If we get that active_host is still running, we can kill it
 		#if(active_host != ''):
 		#	sb.call(["kill", "-9", self._pid]) #Kill if not already in kill log? 
 
 		#Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
-		pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), self._tap, mac], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+		pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), self.id], stdout=PIPE, stderr=PIPE).communicate()[0].split()
 
 		self._logger.debug(pid_and_qemuIP_mac)
-		self._pid = pid_and_qemuIP_mac[0]
-		self._host = pid_and_qemuIP_mac[1]
-		self._qemu_mac = pid_and_qemuIP_mac[2]
+		if self.id != pid_and_qemuIP_mac[0]:
+			self._logger.debug("something went wrong while spawning a qemu: {}".format(pid_and_qemuIP_mac))
+			#so the qemu is killed instantly
+			Popen(["{}/clean_id.sh".format(self.script_dir), self.id, pid_and_qemuIP_mac[1]])
+			return False
+		else:
+			self._pid = pid_and_qemuIP_mac[1]
+			self._host = pid_and_qemuIP_mac[2]
+			self._qemu_mac = pid_and_qemuIP_mac[3]
+			return True
 
-		#spawns a Qemu/Genode host
-		#bridge comes from self
 
 
-	def randomize_mac(self):
-		pipe = Popen(["./rand_mac.sh"], stdout=PIPE, shell=True, stderr = PIPE)
-		raw_output = pipe.communicate()
-		mac = raw_output[0] #stdout is in 0 of tuple
-
-		return mac
-
-	def _revive_session(self):
+	def _revive_session(self):#TODO continue here!!!
 		###Connect to existing host and starts listener
 		try:
 			connection = self._session_class(self._host, self._port)

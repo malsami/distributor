@@ -1,39 +1,32 @@
 #!/bin/bash
 
 #Naked Variables 
-tap="$1"
-mac="$2"
+mac=0a:06:00:00:00:$1
+bridge=br0
+ip=10.200.45.$1
+tap=tap$1
 image="../image.elf" #input genode image
 
-#echo $tap  
-#echo "executed qemu script"
+#creating tap device
+sudo ip tuntap add name $tap mode tap
+#adding it to the bridge
+sudo brctl addif $bridge $tap
+#setting it to UP
+sudo ip link set dev $tap up
 
+screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac,model=lan9118 -nographic -smp 2 -m 1000 -M realview-pbx-a9 -kernel $image"
+#getting pid of the screen, killing the screen will kill the qemu as well
+pid="$(ps -ef | grep -ni -e "SCREEN -dmS qemu$1" | grep -v "grep" | awk '{print $2}')"
 
-#mac="$(hexdump -vn3 -e '/3 "52:54:00"' -e '/1 ":%02x"' -e '"\n"' /dev/urandom)"
-
-#echo "Created random mac address"
-#echo $qemu_ip
-#echo "Creating pid"
-
-#pid=$!
-
-#echo $pid
-
-#echo "Execuring Qemu Script"
-
-
-screen -dmS $tap bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac -net nic,model=lan9118 -nographic -smp 2 -m 1000 -M realview-pbx-a9 -kernel $image"
-pid="$(ps -ef | grep -ni -e "SCREEN -dmS $tap" | grep -v "grep" | awk '{print $2}')"
-
-#echo "Executing Done" 
-
+#giving genode time to set things up
 sleep 20
 
  
 
-
- 
-qemu_ip=$(nmap 10.200.45.00\24 >/dev/null && arp -n | grep -w -i $mac |awk '{print $1}')
-
-printf "%s %s %s" $pid $qemu_ip $mac 
-#>&2 echo $pid 
+ping -c 1 $ip > /dev/null
+if [ $? -eq 0 ]
+then
+	printf "%s %s %s %s" $1 $pid $ip $mac 
+else
+	printf "%s %s %s %s" -1 $pid $ip $mac
+fi
