@@ -19,7 +19,7 @@ screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downs
 pid="$(ps -ef | grep -ni -e "SCREEN -dmS qemu$1" | grep -v "grep" | awk '{print $2}')"
 
 #giving genode time to set things up
-sleep 20
+sleep 45
 
  
 

@@ -12,6 +12,7 @@ import threading
 import time
 import logging
 import subprocess
+import select
 import copy
 import socket
 from multiprocessing import Queue as queue 
@@ -52,7 +53,10 @@ class Distributor:
         self.logger.setLevel(logging.DEBUG)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        
+        with open(self._kill_log, 'w') as swipe_log:
+            swipe_log.write("")
+
+        open(self._kill_log, 'a').close()
         
         self._max_machine = max_machine
         self._machines = []
@@ -67,35 +71,51 @@ class Distributor:
         
         self._bridge = "br0"
         self._cleaner = None
+        self.id_to_pid={}
         self.machinestate={}
         for i in range(self.max_allowed_machines):
             index=i+1
             self.machinestate[index]=0
         self._qemu_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
+        self._qemu_killer.start()
+        self.logger.info("Distributor started")
         
 
 
     def _kill_log_killer(self):
-        self.logger.debug("spawned kill log killer")
+        self.logger.debug("kill_log_killer: spawned kill log killer")
             #TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
-        kill_pid = ''
-         
+        kill_ip = None
         while True: 
-            self.logger.debug("Entering kill function")
-            kill_ip = Popen(["{}/kill_logger.sh".format(self.script_dir), self._kill_log], stdout=PIPE, stderr=PIPE).communicate()[0]
+            self.logger.debug("kill_log_killer: Entering kill function")
+            self.logger.debug("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
+            time.sleep(10)
+            in_str = []
+            with open(self._kill_log, 'r+') as f:
+                in_str = f.read().split("\n")
+                f.seek(0)
+                f.write("")
+                f.truncate()
+            self.logger.debug("kill_log_killer: file content: {}".format(in_str))
+            for line in in_str:
+                if line != '':
+                    kill_ip = line.split(".")
+                    self.logger.debug("kill_log_killer: found {}".format(kill_ip))
+                    if(kill_ip is not None):
+                        try:
+                            kill_id=int(kill_ip[-1])
+                            kill_pid=self.id_to_pid[kill_id]
+                            self.logger.debug("kill_log_killer: Trying to kill pid: {} id:{}".format(kill_pid,kill_id))
+                            Popen(["{}/clean_id.sh".format(self.script_dir), str(kill_id), kill_pid])
 
-            if(kill_ip != ''):
-                for machine in self._machines: 
-                    if(kill_ip == machine._host):
-                        kill_pid = machine._pid
-                        kill_id = machine.id
-                        self.logger.debug("Trying to kill pid: {} id:{}".format(kill_pid,kill_id))
-                        #TODO maybe we should catch the output from the next line an log it, just in case
-                        Popen(["{}/clean_id.sh".format(self.script_dir), kill_id, kill_pid])
-                        self.logger.debug("kill_log_killer killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))
-                kill_ip = ""
-                kill_id = ""
-                kill_pid = ""
+                            self.logger.debug("kill_log_killer: killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))                    
+                            del self.id_to_pid[kill_id]
+                        except KeyError as e:
+                            self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
+                        kill_ip = None
+                        kill_id = ""
+                        kill_pid = ""
+            in_str =[]
             #Continue searching
 
 
@@ -158,10 +178,11 @@ class Distributor:
                                     self.machinestate[k] = 1
                         if new_id != "":
                             m_running = threading.Event()
-                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                             machine.start()
                             self._machines.append((machine, m_running, new_id))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
+                    self._cleaner.start()
                     self.logger.debug("started {} machines".format(len(self._machines)))
                 
                 else:
@@ -178,7 +199,7 @@ class Distributor:
                                         self.machinestate[k] = 1
                             if new_id != "":
                                 m_running = threading.Event()
-                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log)
+                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                                 machine.start()
                                 self._starter.append((machine,m_running, new_id))
                         self.logger.debug("started {} additional machines".format(abs(l)))
@@ -203,7 +224,7 @@ class Distributor:
         #   for optional admission control configuration.  
         
         if taskset is None or not isinstance(taskset, TaskSet):
-            raise TypeError("taskset must be TaskSet.")
+            raise TypeError("taskset must be of type TaskSet.")
 
         if monitor is not None:
             if not isinstance(monitor, AbstractMonitor):
@@ -211,7 +232,7 @@ class Distributor:
 
         # wrap tasksets into an threadsafe iterator
         with self._taskset_list_lock:
-            self._tasksets.append(_TaskSetQueue(taskset, monitor, session_params))#TODO will ich hier immer variants aufrufen?
+            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, session_params))#TODO will ich hier immer variants aufrufen?
         self.logger.info("a new job was added")
         self._refresh_machines()
 
@@ -241,7 +262,7 @@ class _TaskSetQueue():
     serializing call to the `next` method of given iterator/generator.
     """
     def __init__(self, iterator, monitor, *session_params):
-        self.it = iterator
+        self.it = iterator #the tasksets
         self.lock = threading.Lock()
         self.queue = Queue(maxsize=1000)
         self.in_progress = []

@@ -7,6 +7,8 @@ from distributor import Distributor
 t = Hey0TaskSet()
 lm = LoggingMonitor()
 dist = Distributor()
+dist.add_job(t,lm)
+
 print("Initialized Distributor")
 #dist.set_max_machine_value(2)
 dist.add_job(t,lm)

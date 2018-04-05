@@ -24,7 +24,7 @@ class Hey0TaskSet(TaskSet):
             "config" : {},
             # frequency
             "period" : 2000,
-            "numberofjobs" : 0,
+            "numberofjobs" : 1,
             # schedular
             "priority" : 10,
         })
@@ -165,7 +165,7 @@ class Hey9TaskSet(TaskSet):
             task = Task(
                 hey.HelloWorld,
                 priority.Random,
-                period.Custom(5)
+                period.Random
             )
             self.append(task)
 
