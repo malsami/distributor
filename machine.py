@@ -126,15 +126,18 @@ class Machine(threading.Thread):
 							self.inactive.set()#initiating shutdown with no _current_set
 				except socket.error as e:
 					self.logger.debug("id {}: run says: Host at {} died.".format(self.id, self._host))
+					
 					if self._current_set is not None:
 						# the shutdown occured during the task-set processing. The task-set
 						# is pushed back to the task-set queue.
-						self._current_generator.put(self._current_set)
-						self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.id))
+						#self._current_generator.put(self._current_set)
+						#self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.id))
 						# notify monitor about the unprocessed task-set
 						if self._monitor is not None:
 							self._monitor.__taskset_stop__(self._current_set)
-						self._current_set = None
+						#self._current_set = None
+					self.started = False
+					self.stopped = True
 					self._session_died = True
 					self._session = None
 					#besides this we do nothing as the listener will run into the same issue
@@ -296,6 +299,9 @@ class Machine(threading.Thread):
 							self._session_params = self._current_generator.session_params
 						except ValueError as e:
 							self.logger.error("id {}: get_taskset: _current_generator was not in _taskset_list anymore, probably was removed by other machine".format(self.id))
+							self._current_generator = self._taskset_list[0]
+							self._monitor = self._current_generator.monitor
+							self._session_params = self._current_generator.session_params
 					else:
 						self.logger.debug("id {}:get_taskset: taskset_list is empty, we abort".format(self.id))
 						self._current_set = None

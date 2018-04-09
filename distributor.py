@@ -288,12 +288,8 @@ class _TaskSetQueue():
         with self.lock:
             taskset = None
             if not self.queue.empty():
-                try:
-                    taskset = self.queue.get_nowait()
-                except Queue.Empty:
-                    # ups, another distributor just stole our taskset
-                    pass
-
+                taskset = self.queue.get_nowait()
+                
             # take a new one from the iterator
             if taskset is None:
                 taskset = self.it.__next__()
@@ -305,8 +301,8 @@ class _TaskSetQueue():
     def empty(self):
         with self.lock:
             # in progress?
-            if len(self.in_progress) > 0:
-                return False
+            #if len(self.in_progress) > 0:
+            #    return False
             # in queue?
             if not self.queue.empty():
                 return False
