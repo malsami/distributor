@@ -39,12 +39,14 @@ class Machine(threading.Thread):
 		self._session_params = None
 
 		self.script_dir = os.path.dirname(os.path.realpath(__file__))
-		self._logger = logging.getLogger("Machine({})".format(self.id))
-		self.hdlr = logging.FileHandler('{}/log/machine.log'.format(self.script_dir))
-		self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-		self.hdlr.setFormatter(self.formatter)
-		self._logger.addHandler(self.hdlr)
-		self._logger.setLevel(logging.DEBUG)
+		self.logger = logging.getLogger("Machine({})".format(self.id))
+		if not len(self.logger.handlers):
+			self.hdlr = logging.FileHandler('{}/log/machine.log'.format(self.script_dir))
+			self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+			self.hdlr.setFormatter(self.formatter)
+			
+			self.logger.addHandler(self.hdlr)#TODO check if logger has no other handlers before or check for this specific handler other wise I belive that the logger keeps on living and we add filehandlers to it, so we get every output multiple times after multiple calls to Machine()
+			self.logger.setLevel(logging.DEBUG)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
@@ -63,15 +65,19 @@ class Machine(threading.Thread):
 		#self._pid_dict = {}
 		self._pid = "" 
 		self.id_pid=id_pid
+		self.logger.info("=====================================================")
+		self.logger.info("id {}: NEW MACHINE INIT done".format(self.id))
+		self.logger.info("=====================================================")
+
 
 	def run(self):
 		while not self.inactive.is_set():#life loop of Machine
 			if not self._session_died:
 				try:
 					if self._current_set is not None:
-						self._logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.id, self.started, self.stopped, self._session.finished()))
+						self.logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.id, self.started, self.stopped, self._session.finished()))
 						if not self.started:# and not self._session.is_running(self._current_set):
-							self._logger.debug("id {}: have a set and about to start".format(self.id))
+							self.logger.debug("id {}: have a set and about to start".format(self.id))
 							# if not started -> session.start()
 							try:
 								self._session.start(self._current_set)#, *self._session_params)
@@ -80,44 +86,57 @@ class Machine(threading.Thread):
 								# inform the monitor about the start.
 								if self._monitor is not None:
 									self._monitor.__taskset_start__(self._current_set)
-								self._logger.debug("id {}: Taskset variant processing started.".format(self.id))
+								self.logger.debug("id {}: Taskset variant processing started.".format(self.id))
 							except TypeError as e:
 								#meaning session params for a quemu instance are not instance of dict(admctrl) or a taskset not of TaskSet
-								self._logger.debug("id {}: {}".format(self.id,e))
+								self.logger.debug("id {}: {}".format(self.id,e))
 								#should not happen because we check the type in distributor.add_job()
 						
 						elif not self.stopped and self._session.finished():#TODO make running great again otherwise we need a timelimit
-							self._logger.debug("id {}: have a set and about to stop".format(self.id))
+							self.logger.debug("id {}: have a finished set and about to stop".format(self.id))
 							self._session.stop()
+							self.started = False
+							self.stopped = True
 							if self._monitor is not None:
 								self._monitor.__taskset_finish__(self._current_set)
 							# The _current_set is finished and the queue (`current_generator`) is notified
 							# about the processed task-set. This is important, because
 							# TaskSetQueue keeps track of currently processed task-sets.
 							self._current_generator.done(self._current_set)
-							self._logger.debug("id {}: Taskset variant is successfully processed.".format(self.id))
+							self.logger.debug("id {}: Taskset variant is successfully processed.".format(self.id))
 							self._current_set = None
 
 						else:#still running check again in one 10th of a second TODO
-							self._logger.debug("id {}: have a set and still running, will sleep 5s".format(self.id))
+							self.logger.debug("id {}: have a set and still running, will sleep 5s".format(self.id))
 							time.sleep(5)
 
 					else:#_current_set is None
 						if self._continue:#check for soft shutdown
-							self._logger.debug("id {}: getting a taskset, continue is True".format(self.id))
+							self.logger.debug("id {}: getting a taskset, continue is True".format(self.id))
 							try:
 								if not self._get_taskset():
-									self._logger.debug("id {}: no more tasksets, go kill yourself".format(self.id))
+									self.logger.debug("id {}: no more tasksets, go kill yourself".format(self.id))
 									#no more tasksets, go kill yourself!
 									self.inactive.set()
 							except StopIteration:
-								self._logger.debug("id {}: StopIteration: Last taskset was stolen.".format(self.id))
+								self.logger.debug("id {}: StopIteration: Last taskset was stolen.".format(self.id))
 								if self._current_set is not None:#should never be the case, but better save than sorry
-									self._logger.debug("id {}: This is weired, a set was appointed while a StopIteration happened. The Taskset was lost.".format(self.id))
+									self.logger.debug("id {}: This is weired, a set was appointed while a StopIteration happened. The Taskset was lost.".format(self.id))
 						else:
 							self.inactive.set()#initiating shutdown with no _current_set
 				except socket.error as e:
-					self._logger.debug("id {}: run says: Host at {} died.".format(self.id, self._host))
+					self.logger.debug("id {}: run says: Host at {} died.".format(self.id, self._host))
+					if self._current_set is not None:
+						# the shutdown occured during the task-set processing. The task-set
+						# is pushed back to the task-set queue.
+						self._current_generator.put(self._current_set)
+						self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.id))
+						# notify monitor about the unprocessed task-set
+						if self._monitor is not None:
+							self._monitor.__taskset_stop__(self._current_set)
+						self._current_set = None
+					self._session_died = True
+					self._session = None
 					#besides this we do nothing as the listener will run into the same issue
 
 			else:
@@ -127,30 +146,21 @@ class Machine(threading.Thread):
 					time.sleep(5)
 
 		
-		""" #   This part is just a comment because what this section does is performed by the _listener thread
-		    #   upon a socket error, which is triggered by killing the qemu below
-		if self._current_set is not None:
-			# the shutdown occured during the task-set processing. The task-set
-			# is pushed back to the task-set queue.
-			self._current_generator.put(self._current_set)
-			self._logger.debug("Taskset variant is pushed back to queue due to" +
-								" an external shutdown")
-			# notify monitor about the unprocessed task-set
-			if self._monitor is not None:
-			    self._monitor.__taskset_stop__(self._current_set)
-			self._current_set = None
+		
 
 		if not self._session_died:#TO DO: can _session be None here?
-			self._session.close()
+			if self._session is not None:
+				self._session.close()
+				self._session = None
 			self._session_died = True
-		"""
+		
 
 		with open(self._kill_log, "a") as log:
 			log.write(self._host + "\n")
-		self._logger.info("id {}: Qemu instance of {} was killed.".format(self.id, self._host))
+		self.logger.info("id {}: Qemu instance of {} was killed.".format(self.id, self._host))
 		# remove tap device? or is it gone anyway?
-		self._logger.info("id {}: Machine with host  {} is closed.".format(self.id, self._host))
-		self.inactive.set()
+		self.logger.info("id {}: Machine with host  {} is closed.".format(self.id, self._host))
+		
 
 	def _spawn_host(self):
 		#check if macadress currently active(host already/still up? if yes, kill it)
@@ -165,27 +175,27 @@ class Machine(threading.Thread):
 		#if(active_host != ''):
 		#	sb.call(["kill", "-9", self._pid]) #Kill if not already in kill log? 
 
-		#Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
-		pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), str(self.id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+		try:
+			while self.id_pid[self.id]:
+				pass
+		except KeyError as e:
+			#Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
+			pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), str(self.id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
 
-		self._logger.debug("id {}: {}".format(self.id, pid_and_qemuIP_mac))
-		self._logger.info("id {}: ___________________________________".format(self.id))
-		ret_id = int(pid_and_qemuIP_mac[0])
-		self._logger.debug("id {}: {}".format(self.id, ret_id))
-		if self.id != ret_id:
-			self._logger.debug("id {}: something went wrong while spawning a qemu: {}".format(self.id, str(pid_and_qemuIP_mac[0],'utf-8')))
-			#so the qemu is killed instantly
-			Popen(["{}/clean_id.sh".format(self.script_dir), str(self.id), str(pid_and_qemuIP_mac[1],'utf-8')])
-			return False
-		else:
-			try:
-				while self.id_pid[self.id]:
-					pass
-			except KeyError as e:
+			self.logger.debug("id {}: {}".format(self.id, pid_and_qemuIP_mac))
+			self.logger.info("id {}: ___________________________________".format(self.id))
+			ret_id = int(pid_and_qemuIP_mac[0])
+			self.logger.debug("id {}: {}".format(self.id, ret_id))
+			if self.id != ret_id:
+				self.logger.debug("id {}: something went wrong while spawning a qemu: {}".format(self.id, str(pid_and_qemuIP_mac[0],'utf-8')))
+				#so the qemu is killed instantly
+				Popen(["{}/clean_id.sh".format(self.script_dir), str(self.id), str(pid_and_qemuIP_mac[1],'utf-8')])
+				return False
+			else:
 				self.id_pid[self.id] = str(pid_and_qemuIP_mac[1],'utf-8')
 				self._host = str(pid_and_qemuIP_mac[2],'utf-8')
 				self._qemu_mac = str(pid_and_qemuIP_mac[3],'utf-8')
-			return True
+				return True
 
 
 
@@ -193,11 +203,11 @@ class Machine(threading.Thread):
 		###Connect to existing host and starts listener
 		try:
 			connection = self._session_class(self._host, self._port)
-			self._logger.info("id {}: Machine {} connected to {}".format(self.id, self.id, self._host))
+			self.logger.info("id {}: _revive_session: Machine {} connected to {}".format(self.id, self.id, self._host))
 			self._session_died = False
 			self._session = connection
 			self._listening.set()
-			self._logger.debug("id {}: starting listener".format(self.id))
+			self.logger.debug("id {}:_revive_session: starting listener".format(self.id))
 			self._listener_thread = threading.Thread(target = Machine._listener, args = (self,))
 			self._listener_thread.start()
 			return True #successful startup
@@ -205,44 +215,50 @@ class Machine(threading.Thread):
 			if e.errno == errno.ECONNREFUSED:
 				#J connection refused. there might be other computers in the
 				#J network. that's ok and the error is handled silently.
-				self._logger.debug("id {}: {}".format(self.id,e))
+				self.logger.debug("id {}: {}".format(self.id,e))
 			else:
 				#J otherwise a bigger problem occured
 				with open(self._kill_log, "a") as log:
 					log.write(self._host + "\n")
-				self._logger.critical("id {}: {}".format(self.id,e))
+				self.logger.critical("id {}: _revive_session: {}".format(self.id,e))
 			self._session_died = True
 			self._session = None
-			self._listening.clear()
-			self._logger.debug("id {}: reset stuff and reset session".format(self.id))
+			#self._listening.clear()#can go because session = none clears listening in the listener
+			self.logger.debug("id {}:_revive_session: reset stuff and reset session".format(self.id))
 			return False#return False so we can retry
 
 	def _listener(self):
 		#Listener for the session
-		self._logger.debug("id {}: listener: is listening".format(self.id))
+		self.logger.debug("id {}: listener: started".format(self.id))
 		try:
 			while self._listening.is_set():
+				self.logger.debug("id {}: listener: is listening".format(self.id))
 				time.sleep(5)
-				if self._current_set is not None and self._session.run():#TODO check for none makes sense?
-					if self._monitor is not None:
-						self._monitor.__taskset_event__(self._current_set)
+				if self._session is not None:
+					if self._session.run():
+						self.logger.debug("id {}: listener: have session, received a profile".format(self.id))
+						if self._monitor is not None and self._current_set is not None:
+							self._monitor.__taskset_event__(self._current_set)
+				else:
+					self._listening.clear()
+					self.logger.debug("id {}: listener: no session, so shutting down ".format(self.id))
 
 		except socket.error as e:
 			# an error occured and is handled now
-			self._logger.critical("id {}: {}".format(self.id,e))
+			self.logger.critical("id {}:listener: {}".format(self.id,e))
 
 			if self._current_set is not None:
 				# the error occured during the task-set processing. The task-set
 				# is pushed back to the task-set queue.
 				self._current_generator.put(self._current_set)#TODO delete information from this run from set.job?
-			self._logger.debug("id {}: Taskset variant is pushed back to queue due to".format(self.id) +
+			self.logger.debug("id {}:listener: Taskset variant is pushed back to queue due to".format(self.id) +
 									" a critical error")
 			# notify monitor about the unprocessed task-set
 			if self._monitor is not None:
 				self._monitor.__taskset_stop__(self._current_set)
 			self._current_set = None
-		finally:
-			self._logger.debug("id {}: listener: the session died ".format(self.id))
+			
+			self._session = None
 			self._session_died = True
 			self._listening.clear()
 
@@ -251,38 +267,41 @@ class Machine(threading.Thread):
 
 	def _get_taskset(self):
 		if self._current_generator is None:
-			self._logger.debug("id {}: I hold no generator, will try to fetch one".format(self.id))
+			self.logger.debug("id {}:get_taskset: I hold no generator, will try to fetch one".format(self.id))
 			with self._taskset_list_lock:
 				if not self._taskset_list:
-					self._logger.debug("id {}: we are out of tasksets".format(self.id))
+					self.logger.debug("id {}:get_taskset: we are out of tasksets".format(self.id))
 					return False#abort thread, nothing to process
 				else:
-					self._logger.debug("id {}: getting new generator and monitor and stuff".format(self.id))
+					self.logger.debug("id {}:get_taskset: getting new generator and monitor and stuff".format(self.id))
 					self._current_generator = self._taskset_list[0]
 					self._monitor = self._current_generator.monitor
 					self._session_params = self._current_generator.session_params
 		else:
 			if self._current_generator.empty():
-				self._logger.debug("id {}: My generator is empty, trying to get a new one...".format(self.id))
+				self.logger.debug("id {}:get_taskset: My generator is empty, trying to get a new one...".format(self.id))
 				with self._taskset_list_lock:
 					if self._taskset_list:
-						if self._taskset_list.index(self._current_generator) == 0:
-							self._taskset_list.remove(self._current_generator)
-							self._logger.debug("id {}:empty generator was still in taskset_list, did remove it".format(self.id))
-							if not self._taskset_list:
-								self._logger.debug("id {}: but now taskset_list is empty so we abort".format(self.id))
-								self._current_set = None
-								return False#abort thread, nothing to process
-						self._logger.debug("id {}:getting new generator...".format(self.id))
-						self._current_generator = self._taskset_list[0]
-						self._monitor = self._current_generator.monitor
-						self._session_params = self._current_generator.session_params
+						try:
+							if self._taskset_list.index(self._current_generator) == 0:
+								self._taskset_list.remove(self._current_generator)
+								self.logger.debug("id {}:get_taskset: empty generator was still in taskset_list, did remove it".format(self.id))
+								if not self._taskset_list:
+									self.logger.debug("id {}:get_taskset: but now taskset_list is empty so we abort".format(self.id))
+									self._current_set = None
+									return False#abort thread, nothing to process
+							self.logger.debug("id {}:get_taskset: getting new generator...".format(self.id))
+							self._current_generator = self._taskset_list[0]
+							self._monitor = self._current_generator.monitor
+							self._session_params = self._current_generator.session_params
+						except ValueError as e:
+							self.logger.error("id {}: get_taskset: _current_generator was not in _taskset_list anymore, probably was removed by other machine".format(self.id))
 					else:
-						self._logger.debug("id {}:taskset_list is empty, we abort".format(self.id))
+						self.logger.debug("id {}:get_taskset: taskset_list is empty, we abort".format(self.id))
 						self._current_set = None
 						return False#abort thread, nothing to process
 
-		self._logger.debug("id {}: generator is fine, getting new taskset".format(self.id))    
+		self.logger.debug("id {}: get_taskset: generator is fine, getting new taskset".format(self.id))    
 		self._current_set = self._current_generator.get()#might throw StopIteration is handled upstairs
-		self._logger.debug("id {}: got set".format(self.id))
+		self.logger.debug("id {}: get_taskset: got set".format(self.id))
 		return True#all fine

@@ -56,13 +56,15 @@ class GenodeSession(AbstractSession):
         self._socket = socket.create_connection((host, port))
         self.host = host
         self.logger = logging.getLogger("GenodeSession({})".format(host))
-        self.hdlr = logging.FileHandler('{}/../log/session.log'.format(self.script_dir))
-        self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        self.hdlr.setFormatter(self.formatter)
-        self.logger.addHandler(self.hdlr)
-        self.logger.setLevel(logging.DEBUG)
-
-        self.logger.debug("host {}: Connection establishment".format(self.host))
+        if not len(self.logger.handlers):
+            self.hdlr = logging.FileHandler('{}/../log/session.log'.format(self.script_dir))
+            self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+            self.hdlr.setFormatter(self.formatter)
+            self.logger.addHandler(self.hdlr)
+            self.logger.setLevel(logging.DEBUG)
+        self.logger.debug("=====================================================")
+        self.logger.debug("host {}: Connection established".format(self.host))
+        self.logger.debug("=====================================================")
         self._socket.settimeout(10.0) # wait 10 seconds for responses...
         self.set = None
         self.admctrl = None
@@ -75,6 +77,9 @@ class GenodeSession(AbstractSession):
         self._send_descs()
         self._send_bins()
         self._start()
+        self.logger.debug("=====================================================")
+        self.logger.debug("host {}: taskset STARTED".format(self.host))
+        self.logger.debug("=====================================================")
 
     def stop(self):
         self._stop()
@@ -217,6 +222,8 @@ class GenodeSession(AbstractSession):
         return xmltodict.unparse(d, pretty=True, full_document=False)
         
     def _close(self):
+        self.set = None
+        self.admctrl=None
         self._socket.close()
         self.logger.debug('host {}: Close connection.'.format(self.host))
         
@@ -227,6 +234,7 @@ class GenodeSession(AbstractSession):
         
     def _clear(self):
         self.set = None
+        self.admctrl = None
         self.logger.debug('host {}: Clear tasks on server.'.format(self.host))
         meta = struct.pack('I', MagicNumber.CLEAR)
         self._socket.send(meta)
@@ -324,13 +332,15 @@ class QemuSession(PingSession):
             PingSession.start(self, taskset, admctrl)
         except socket.timeout as e:
             self._kill_qemu()
+            self.close()
             raise e
 
     def stop(self):
         try:
             PingSession.stop(self)
         except socket.timeout as e:
-            self._kill_qemu()            
+            self._kill_qemu()
+            self.close()          
             raise e
 
 

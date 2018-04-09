@@ -46,11 +46,12 @@ class Distributor:
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         
         self.logger = logging.getLogger('Distributor')
-        self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
-        self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        self.hdlr.setFormatter(self.formatter)
-        self.logger.addHandler(self.hdlr)
-        self.logger.setLevel(logging.DEBUG)
+        if not len(self.logger.handlers):
+            self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
+            self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+            self.hdlr.setFormatter(self.formatter)
+            self.logger.addHandler(self.hdlr)
+            self.logger.setLevel(logging.DEBUG)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
         with open(self._kill_log, 'w') as swipe_log:
@@ -78,8 +79,9 @@ class Distributor:
             self.machinestate[index]=0
         self._qemu_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
         self._qemu_killer.start()
+        self.logger.info("=====================================================")
         self.logger.info("Distributor started")
-        
+        self.logger.info("=====================================================")
 
 
     def _kill_log_killer(self):
@@ -89,7 +91,10 @@ class Distributor:
         while True: 
             self.logger.debug("kill_log_killer: Entering kill function")
             self.logger.debug("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
-            time.sleep(10)
+            self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
+            self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
+            self.logger.debug("kill_log_killer: len(tasksets): {}".format(len(self._tasksets)))
+            time.sleep(5)
             in_str = []
             with open(self._kill_log, 'r+') as f:
                 in_str = f.read().split("\n")
@@ -181,6 +186,7 @@ class Distributor:
                             machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                             machine.start()
                             self._machines.append((machine, m_running, new_id))
+                            #self.logger.debug("refresh_machines: machines: {}".format(self._machines))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
                     self._cleaner.start()
                     self.logger.debug("started {} machines".format(len(self._machines)))
@@ -246,16 +252,21 @@ class Distributor:
 
     def _clean_machines(self):
         #cleans up machines which are not running
-        self.logger.debug("cleaner started, will clean up not running machines")
+        self.logger.debug("cleaner: started, will clean up not running machines")
         dead = []
         while self._machines:
+            time.sleep(10)
+            self.logger.debug("cleaner: looking for inactive machines")
             for m in self._machines:
-                if not m[1].is_set():
+                if m[1].is_set():
+                    self.logger.debug("cleaner: found inactive machine with id -{}-".format(m[2]))
                     dead.append(m)
             for d in dead:
                 self.machinestate[d[2]]=0
+                self.logger.debug("cleaner: removing machine with id -{}-".format(d[2]))
                 self._machines.remove(d)
             dead = []
+        self.logger.debug("cleaner: stopped because there are no machines left")
 
 class _TaskSetQueue():
     """Takes an iterator/generator and makes it thread-safe by
