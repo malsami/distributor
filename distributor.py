@@ -207,7 +207,7 @@ class Distributor:
                                 m_running = threading.Event()
                                 machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                                 machine.start()
-                                self._starter.append((machine,m_running, new_id))
+                                self._machines.append((machine,m_running, new_id))
                         self.logger.debug("started {} additional machines".format(abs(l)))
                     elif l < 0:
                         for k in range(0,abs(l)):
