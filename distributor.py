@@ -31,8 +31,7 @@ from monitor import AbstractMonitor
 from session import AbstractSession
 #from taskgen.sessions.genode import PingSession#TODO pfad anpassen
 from machine import Machine
-from bridge import *
-from bridge import Tap as trctl
+
 from subprocess import *
 import importlib
 
@@ -242,13 +241,12 @@ class Distributor:
         self.logger.info("a new job was added")
         self._refresh_machines()
 
-    def kill_all(self):
+    def kill_all_machines(self):
         #hard kill, callable from outside
         self.logger.info("Killing machines...")
         for m in self._machines:
             m[1].clear()
         self.logger.info("All machines shuting down.")
-        self._machines = []
 
     def _clean_machines(self):
         #cleans up machines which are not running

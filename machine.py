@@ -10,7 +10,7 @@ import errno
 import time
 from subprocess import * 
 import subprocess as sb
-from pynetlinux import *
+
 from sessions.genode import * 
 
 class Machine(threading.Thread):
@@ -149,7 +149,14 @@ class Machine(threading.Thread):
 					time.sleep(5)
 
 		
-		
+		if self._current_set is not None:
+			# the shutdown occured during the task-set processing. The task-set
+			# is pushed back to the task-set queue.
+			self._current_generator.put(self._current_set)
+			self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.id))
+			# notify monitor about the unprocessed task-set
+			if self._monitor is not None:
+				self._monitor.__taskset_stop__(self._current_set)
 
 		if not self._session_died:#TO DO: can _session be None here?
 			if self._session is not None:

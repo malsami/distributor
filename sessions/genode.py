@@ -117,7 +117,8 @@ class GenodeSession(AbstractSession):
             self._socket.settimeout(0.1) # Non blocking
             data = self._socket.recv(4)
             size = int.from_bytes(data, 'little')
-        except:
+        except socket.error as e:
+            self.logger.debug('host {}: error while receiving: {}'.format(self.host, e))
             return False
         finally:
             self._socket.settimeout(timeout)

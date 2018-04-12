@@ -23,7 +23,7 @@ class Hey0TaskSet(TaskSet):
             "pkg" : "hey",
             "config" : {},
             # frequency
-            "period" : 2000,
+            "period" : 0,
             "numberofjobs" : 1,
             # schedular
             "priority" : 10,

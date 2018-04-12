@@ -27,6 +27,8 @@ class LoggingMonitor(AbstractMonitor):
                 self.logger.info("{} {}".format(job.start_date, job.end_date))
 
     def __taskset_stop__(self, taskset):
+        for task in taskset:
+            task.jobs = []
         pass
 
 
