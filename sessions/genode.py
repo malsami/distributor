@@ -8,6 +8,7 @@ import subprocess
 from collections import Iterable
 import logging
 import xmltodict
+import dicttoxml
 from abc import ABCMeta, abstractmethod
 from session import AbstractSession
 sys.path.append('../')
@@ -250,8 +251,8 @@ class GenodeSession(AbstractSession):
         if not isinstance(self.set, TaskSet):
             raise TypeError("taskset must be type TaskSet") 
         
-        description = self._dicttoxml(self.set.description())
-        description = description.encode('ascii')
+        description = dicttoxml.dicttoxml(self.set.description(), root=False)
+        #description = description.encode('ascii')
         self.logger.debug('host {}: Description about to send: {} '.format(self.host, description))
         
         
