@@ -250,9 +250,9 @@ class GenodeSession(AbstractSession):
     def _send_descs(self):
         if not isinstance(self.set, TaskSet):
             raise TypeError("taskset must be type TaskSet") 
-        
-        description = dicttoxml.dicttoxml(self.set.description(), root=False)
-        #description = description.encode('ascii')
+        list_item_to_name = lambda x : "periodictask"
+        description = dicttoxml.dicttoxml(self.set.description(), attr_type=False, root=False, item_func=list_item_to_name)
+        #description = str(description, 'ascii')
         self.logger.debug('host {}: Description about to send: {} '.format(self.host, description))
         
         

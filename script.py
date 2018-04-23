@@ -18,3 +18,18 @@ screen -dmS tap0 bash -c "qemu-system-arm -net tap,ifname=tap0,script=no,downscr
 
 #Should be done after bridge creation
 #sudo ip addr add 10.200.45.1/24 dev br0
+from xml.dom.minidom import parseString
+import dicttoxml
+from example import Hey0TaskSet
+
+t = Hey0TaskSet()
+it = t.variants()
+elem = it.__next__()
+print(elem.description())
+
+list_item_to_name = lambda x : "periodictask"
+description = dicttoxml.dicttoxml(elem.description(), attr_type=False, root=False, item_func=list_item_to_name)
+
+print(parseString(description).toprettyxml())
+print(description)
+print(str(description, "ascii"))

@@ -18,11 +18,12 @@ class Hey0TaskSet(TaskSet):
             "id" : 1,
             "executiontime" : 99999999,
             "criticaltime" : 0,
+            "deadline" : 10000,
             # binary
             "quota" : "10M",
             "pkg" : "pi",
             "config" : {
-            "arg1" : 10,
+                "arg1" : 10
             },
             # frequency
             "period" : 0,
