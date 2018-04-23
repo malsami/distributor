@@ -19,9 +19,11 @@ class Hey0TaskSet(TaskSet):
             "executiontime" : 99999999,
             "criticaltime" : 0,
             # binary
-            "quota" : "1M",
-            "pkg" : "hey",
-            "config" : {},
+            "quota" : "10M",
+            "pkg" : "pi",
+            "config" : {
+            "arg1" : 10,
+            },
             # frequency
             "period" : 0,
             "numberofjobs" : 1,

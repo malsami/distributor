@@ -245,7 +245,7 @@ class Distributor:
         #hard kill, callable from outside
         self.logger.info("Killing machines...")
         for m in self._machines:
-            m[1].clear()
+            m[1].set()
         self.logger.info("All machines shuting down.")
 
     def _clean_machines(self):

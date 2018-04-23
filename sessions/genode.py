@@ -75,7 +75,13 @@ class GenodeSession(AbstractSession):
         self.admctrl = admctrl
         self._optimize()
         self._send_descs()
+        self.logger.debug("=====================================================")
+        self.logger.debug("host {}: taskset DESCS_SENT".format(self.host))
+        self.logger.debug("=====================================================")
         self._send_bins()
+        self.logger.debug("=====================================================")
+        self.logger.debug("host {}: taskset BINS_SENT".format(self.host))
+        self.logger.debug("=====================================================")
         self._start()
         self.logger.debug("=====================================================")
         self.logger.debug("host {}: taskset STARTED".format(self.host))
@@ -214,8 +220,8 @@ class GenodeSession(AbstractSession):
         
         self.logger.debug('host {}: Send optimiziaton goal.'.format(self.host))
         meta = struct.pack('II', MagicNumber.OPTIMIZE, len(xml))
-        self._socket.send(meta)
-        self._socket.send(xml)
+        self._socket.sendall(meta)
+        self._socket.sendall(xml)
 
     def _dicttoxml(self, d):
         # genode can't handle `<?xml version="1.0" encoding="utf-8"?>` at
@@ -231,14 +237,14 @@ class GenodeSession(AbstractSession):
     def _stop(self):
         meta = struct.pack('I', MagicNumber.STOP)
         self.logger.debug('host {}: Stop tasks on server.'.format(self.host))
-        self._socket.send(meta)
+        self._socket.sendall(meta)
         
     def _clear(self):
         self.set = None
         self.admctrl = None
         self.logger.debug('host {}: Clear tasks on server.'.format(self.host))
         meta = struct.pack('I', MagicNumber.CLEAR)
-        self._socket.send(meta)
+        self._socket.sendall(meta)
             
     def _send_descs(self):
         if not isinstance(self.set, TaskSet):
@@ -246,11 +252,13 @@ class GenodeSession(AbstractSession):
         
         description = self._dicttoxml(self.set.description())
         description = description.encode('ascii')
+        self.logger.debug('host {}: Description about to send: {} '.format(self.host, description))
+        
         
         self.logger.debug("host {}: Sending taskset description.".format(self.host))
         meta = struct.pack('II', MagicNumber.SEND_DESCS, len(description))
-        self._socket.send(meta)
-        self._socket.send(description)
+        self._socket.sendall(meta)
+        self._socket.sendall(description)
 
     
     def _send_bins(self):
@@ -261,7 +269,7 @@ class GenodeSession(AbstractSession):
         self.logger.debug('host {}: Sending {} binary file(s).'.format(self.host, len(binaries)))
         
         meta = struct.pack('II', MagicNumber.SEND_BINARIES, len(binaries))
-        self._socket.send(meta)
+        self._socket.sendall(meta)
 
         for name in binaries:
             # Wait for 'go' message.
@@ -275,13 +283,15 @@ class GenodeSession(AbstractSession):
             file = open(path, 'rb').read()
             size = os.stat(path).st_size
             meta = struct.pack('15scI', name.encode('ascii'), b'\0', size)
-            self._socket.send(meta)
-            self._socket.send(file)
+            meta_b = self._socket.sendall(meta)
+            file_b = self._socket.sendall(file)
+            self.logger.debug('host {}: {} sent {} meta_b and {} file_b.'.format(self.host,name, meta_b, file_b))
+            
 
     def _start(self):
         self.logger.debug('host {}: Starting tasks on server.'.format(self.host))
         meta = struct.pack('I', MagicNumber.START)
-        self._socket.send(meta)
+        self._socket.sendall(meta)
         
 
 
