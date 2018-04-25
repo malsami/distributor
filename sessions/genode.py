@@ -181,14 +181,37 @@ class GenodeSession(AbstractSession):
                         task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
+                elif _type == "EXIT_CRITICAL":
+                    if not task.jobs or task.jobs[-1].end_date is not None:
+                        task.jobs.append(Job())
+                    # take last job of the list and set its end date.
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
+                elif _type == "EXIT_EXTERNAL":
+                    if not task.jobs or task.jobs[-1].end_date is not None:
+                        task.jobs.append(Job())
+                    # take last job of the list and set its end date.
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
+                elif _type == "EXIT_ERROR":
+                    if not task.jobs or task.jobs[-1].end_date is not None:
+                        task.jobs.append(Job())
+                    # take last job of the list and set its end date.
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
                 elif _type == "JOBS_DONE":
                     #TODO this is fine, but aparently not working on the genode system.
                     #if we receive this, we do nothing so far
                     if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None):
                     	self.logger.critical("host {}: JOBS_DONE from Genode is received but jobs is not number of jobs long yet.".format(self.host))
                 elif _type == "NOT_SCHEDULED":
-                	#TODO kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
-                    pass
+                	#kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
+                    if not task.jobs or task.jobs[-1].end_date is not None:
+                        task.jobs.append(Job())
+                    # take last job of the list and set its end date.
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
                 else:
                     self.logger.critical("host {}: Unknown event type {}".format(self.host,_type))
 
