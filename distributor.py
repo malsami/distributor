@@ -34,6 +34,7 @@ from machine import Machine
 
 from subprocess import *
 import importlib
+import copy
 
 
 
@@ -290,7 +291,7 @@ class _TaskSetQueue():
                 
             # take a new one from the iterator
             if taskset is None:
-                taskset = self.it.__next__()
+                taskset = copy.deepcopy(self.it.__next__())
 
             # keep track of current processed tasksets
             self.in_progress.append(taskset)
@@ -306,7 +307,7 @@ class _TaskSetQueue():
                 return False
             # in iterator?
             try:
-                self.queue.put(self.it.__next__())
+                self.queue.put(copy.deepcopy(self.it.__next__()))
                 return False
             except StopIteration:
                 return True

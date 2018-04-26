@@ -17,6 +17,7 @@ from taskgen.task import Job
 import taskgen
 import time
 import json
+import xml.dom.minidom #for xml parsing in the logfiles
 
 # capsulation avoids attribute pollution
 class MagicNumber:
@@ -71,6 +72,12 @@ class GenodeSession(AbstractSession):
         self.admctrl = None
 
     def start(self, taskset, admctrl=None):
+        self.logger.debug("=====================================================")
+        self.logger.debug("host {}: NEW taskset".format(self.host))
+        self.logger.debug("=====================================================")
+        for st in taskset:
+            self.logger.debug("host {}: taskid: {} has object_id: {}".format(self.host,st["id"],id(st)))
+        self.logger.debug("host {}: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(self.host))
         self._clear()
         self.set=taskset
         self.admctrl = admctrl
@@ -98,6 +105,8 @@ class GenodeSession(AbstractSession):
             pass
         self._close()    
 
+    def removeSet(self):
+        self.set = None
         
     def finished(self):
         if self.set is None:
@@ -108,7 +117,7 @@ class GenodeSession(AbstractSession):
         for task in self.set:
             self.logger.debug("host {}: task_id: {} | len(task.jobs): {} | task numberofjobs: {}".format(self.host, task["id"], len(task.jobs), task["numberofjobs"]))
             for j in task.jobs:
-                self.logger.debug("host {}: task_id: {} | job start: {} | job end: {}".format(self.host, task["id"], j.start_date, j.end_date))
+                self.logger.debug("host {}: object_id: {} | task_id: {} | job start: {} | job end: {}".format(self.host, id(task), task["id"], j.start_date, j.end_date))
             done = done and ((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
         
         # if all jobs are done, we are not running anymore
@@ -134,7 +143,7 @@ class GenodeSession(AbstractSession):
         self.logger.debug('host {}: Receiveing new event of {} bytes.'.format(self.host, size))
         data = b''
         while len(data) < size:
-            data += self._socket.recv(1024)
+            data += self._socket.recv(size-len(data))
 
         self.logger.debug("host {}: data_dump: {}".format(self.host, data))
         # parse xml
@@ -146,6 +155,7 @@ class GenodeSession(AbstractSession):
             ascii = temp[0]+'</profile>'
             #now we can be certain the parser will not have issues
             profile = xmltodict.parse(ascii)
+            self.logger.info('host {}: Profile translates to: \n{}\n'.format(self.host, xml.dom.minidom.parseString(ascii).toprettyxml()))
         except:
             self.logger.error('host {}: XML event data not parseable.'.format(self.host))
             return False
@@ -275,8 +285,7 @@ class GenodeSession(AbstractSession):
             raise TypeError("taskset must be type TaskSet") 
         list_item_to_name = lambda x : "periodictask"
         description = dicttoxml.dicttoxml(self.set.description(), attr_type=False, root=False, item_func=list_item_to_name)
-        #description = str(description, 'ascii')
-        self.logger.debug('host {}: Description about to send: {} '.format(self.host, description))
+        self.logger.debug('host {}: Description about to send: \n{}\n '.format(self.host, xml.dom.minidom.parseString(description).toprettyxml()))
         
         
         self.logger.debug("host {}: Sending taskset description.".format(self.host))
@@ -286,6 +295,7 @@ class GenodeSession(AbstractSession):
 
     
     def _send_bins(self):
+        self.run()
         if not isinstance(self.set, TaskSet):
             raise TypeError("taskset must be type TaskSet") 
 

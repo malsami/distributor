@@ -37,6 +37,7 @@ class Machine(threading.Thread):
 		self._session_died = True #state of the current session
 		self._session = None
 		self._session_params = None
+		self._session_lock = threading.Lock()
 
 		self.script_dir = os.path.dirname(os.path.realpath(__file__))
 		self.logger = logging.getLogger("Machine({})".format(self.id))
@@ -60,6 +61,7 @@ class Machine(threading.Thread):
 		self._listener_thread = None
 		self.started = False
 		self.stopped = True
+		self.finished = False
 		self._continue = True
 
 		#self._pid_dict = {}
@@ -75,7 +77,8 @@ class Machine(threading.Thread):
 			if not self._session_died:
 				try:
 					if self._current_set is not None:
-						self.logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.id, self.started, self.stopped, self._session.finished()))
+						self.finished = self._session.finished()
+						self.logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.id, self.started, self.stopped, self.finished))
 						if not self.started:# and not self._session.is_running(self._current_set):
 							self.logger.debug("id {}: have a set and about to start".format(self.id))
 							# if not started -> session.start()
@@ -92,7 +95,7 @@ class Machine(threading.Thread):
 								self.logger.debug("id {}: {}".format(self.id,e))
 								#should not happen because we check the type in distributor.add_job()
 						
-						elif not self.stopped and self._session.finished():#TODO make running great again otherwise we need a timelimit
+						elif not self.stopped and self.finished:#TODO make running great again otherwise we need a timelimit
 							self.logger.debug("id {}: have a finished set and about to stop".format(self.id))
 							self._session.stop()
 							self.started = False
@@ -105,10 +108,16 @@ class Machine(threading.Thread):
 							self._current_generator.done(self._current_set)
 							self.logger.debug("id {}: Taskset variant is successfully processed.".format(self.id))
 							self._current_set = None
-
-						else:#still running check again in one 10th of a second TODO
+							self._session.removeSet()
+						else:
 							self.logger.debug("id {}: have a set and still running, will sleep 5s".format(self.id))
-							time.sleep(5)
+							self.logger.debug("id {}: listener: is listening".format(self.id))
+							if self._session is not None:
+								if self._session.run():
+									self.logger.debug("id {}: listener: have session, received a profile".format(self.id))
+								if self._monitor is not None and self._current_set is not None:
+									self._monitor.__taskset_event__(self._current_set)
+							time.sleep(1)
 
 					else:#_current_set is None
 						if self._continue:#check for soft shutdown
@@ -216,10 +225,10 @@ class Machine(threading.Thread):
 			self.logger.info("id {}: _revive_session: Machine {} connected to {}".format(self.id, self.id, self._host))
 			self._session_died = False
 			self._session = connection
-			self._listening.set()
-			self.logger.debug("id {}:_revive_session: starting listener".format(self.id))
-			self._listener_thread = threading.Thread(target = Machine._listener, args = (self,))
-			self._listener_thread.start()
+			#self._listening.set()
+			#self.logger.debug("id {}:_revive_session: starting listener".format(self.id))
+			#self._listener_thread = threading.Thread(target = Machine._listener, args = (self,))
+			#self._listener_thread.start()
 			return True #successful startup
 		except socket.error as e:
 			if e.errno == errno.ECONNREFUSED:
@@ -243,12 +252,13 @@ class Machine(threading.Thread):
 		try:
 			while self._listening.is_set():
 				self.logger.debug("id {}: listener: is listening".format(self.id))
-				time.sleep(5)
+				time.sleep(2)
 				if self._session is not None:
-					if self._session.run():
-						self.logger.debug("id {}: listener: have session, received a profile".format(self.id))
-						if self._monitor is not None and self._current_set is not None:
-							self._monitor.__taskset_event__(self._current_set)
+					with self._session_lock:
+						if self._session.run():
+							self.logger.debug("id {}: listener: have session, received a profile".format(self.id))
+							if self._monitor is not None and self._current_set is not None:
+								self._monitor.__taskset_event__(self._current_set)
 				else:
 					self._listening.clear()
 					self.logger.debug("id {}: listener: no session, so shutting down ".format(self.id))
