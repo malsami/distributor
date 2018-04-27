@@ -51,7 +51,7 @@ class Distributor:
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging.INFO)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
         with open(self._kill_log, 'w') as swipe_log:
@@ -85,8 +85,7 @@ class Distributor:
 
 
     def _kill_log_killer(self):
-        self.logger.debug("kill_log_killer: spawned kill log killer")
-            #TODO function to target a thread to which will monitor the kill log and kill qemus as soon as ip shows up
+        self.logger.info("kill_log_killer: spawned kill log killer")
         kill_ip = None
         while True: 
             self.logger.debug("kill_log_killer: Entering kill function")
@@ -94,7 +93,7 @@ class Distributor:
             self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
             self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
             self.logger.debug("kill_log_killer: len(tasksets): {}".format(len(self._tasksets)))
-            time.sleep(5)
+            time.sleep(2)
             in_str = []
             with open(self._kill_log, 'r+') as f:
                 in_str = f.read().split("\n")
@@ -110,10 +109,10 @@ class Distributor:
                         try:
                             kill_id=int(kill_ip[-1])
                             kill_pid=self.id_to_pid[kill_id]
-                            self.logger.debug("kill_log_killer: Trying to kill pid: {} id:{}".format(kill_pid,kill_id))
+                            self.logger.debug("kill_log_killer: Trying to kill pid: {} and id:{}".format(kill_pid,kill_id))
                             Popen(["{}/clean_id.sh".format(self.script_dir), str(kill_id), kill_pid])
 
-                            self.logger.debug("kill_log_killer: killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))                    
+                            self.logger.info("kill_log_killer: killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))                    
                             del self.id_to_pid[kill_id]
                         except KeyError as e:
                             self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
@@ -153,7 +152,7 @@ class Distributor:
         
         if(isinstance(new_value, int) and 0 < new_value):
             if new_value > self.max_allowed_machines:
-                self.logger.info("the new value in set_max_machine_value was {}, thus bigger than the max_allowed_machines of {} the _max_machine value was set to the max_allowed_machines value".format(new_value,self.max_allowed_machines))
+                self.logger.debug("the new value in set_max_machine_value was {}, thus bigger than the max_allowed_machines of {} the _max_machine value was set to the max_allowed_machines value".format(new_value,self.max_allowed_machines))
                 self._max_machine = self.max_allowed_machines
             else:
                 self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
@@ -186,10 +185,9 @@ class Distributor:
                             machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                             machine.start()
                             self._machines.append((machine, m_running, new_id))
-                            #self.logger.debug("refresh_machines: machines: {}".format(self._machines))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
                     self._cleaner.start()
-                    self.logger.debug("started {} machines".format(len(self._machines)))
+                    self.logger.info("started {} machines".format(len(self._machines)))
                 
                 else:
                     l = self._max_machine - len(self._machines)
@@ -208,21 +206,21 @@ class Distributor:
                                 machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                                 machine.start()
                                 self._machines.append((machine,m_running, new_id))
-                        self.logger.debug("started {} additional machines".format(abs(l)))
+                        self.logger.info("started {} additional machines".format(abs(l)))
                     elif l < 0:
                         for k in range(0,abs(l)):
                             triple = self._machines.pop()
                             machine=triple[0]
                             machine.close()
                             self.machinestate[triple[2]]=0
-                        self.logger.debug("closed {} machines".format(abs(l)))
+                        self.logger.info("closed {} machines".format(abs(l)))
             else:
                 self.logger.debug("no machines currently running")
 
     def add_job(self, taskset, monitor = None, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
         #   :param taskset taskgen.taskset.TaskSet: a taskset for the distribution
-            #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
+        #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
         #   :param session_params: optional parameters which are passed to the
         #   `start` method of the actual session. Pay attention: Theses parameters
         #   must be implemented by the session class. A good example is the
@@ -251,10 +249,11 @@ class Distributor:
 
     def _clean_machines(self):
         #cleans up machines which are not running
-        self.logger.debug("cleaner: started, will clean up not running machines")
+        self.logger.info("cleaner: started, will clean up not running machines")
         dead = []
         while self._machines:
             time.sleep(10)
+            self.logger.info("cleaner: state of current machines: {}".format(self.id_to_pid))
             self.logger.debug("cleaner: looking for inactive machines")
             for m in self._machines:
                 if m[1].is_set():
@@ -265,7 +264,7 @@ class Distributor:
                 self.logger.debug("cleaner: removing machine with id -{}-".format(d[2]))
                 self._machines.remove(d)
             dead = []
-        self.logger.debug("cleaner: stopped because there are no machines left")
+        self.logger.info("cleaner: stopped because there are no machines left")
 
 class _TaskSetQueue():
     """Takes an iterator/generator and makes it thread-safe by
@@ -332,6 +331,8 @@ class _TaskSetQueue():
         with self.lock:
             try:
                 self.in_progress.remove(taskset)
+                for task in taskset:
+                    task.jobs = []
                 self.queue.put_nowait(taskset)
             except Full:
                 # We don't care about the missed taskset. Actually, there is a bigger

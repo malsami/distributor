@@ -63,18 +63,18 @@ class GenodeSession(AbstractSession):
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
-        self.logger.debug("=====================================================")
-        self.logger.debug("host {}: Connection established".format(self.host))
-        self.logger.debug("=====================================================")
+            self.logger.setLevel(logging.INFO)
+        self.logger.info("=====================================================")
+        self.logger.info("host {}: Connection established".format(self.host))
+        self.logger.info("=====================================================")
         self._socket.settimeout(10.0) # wait 10 seconds for responses...
         self.set = None
         self.admctrl = None
 
     def start(self, taskset, admctrl=None):
-        self.logger.debug("=====================================================")
-        self.logger.debug("host {}: NEW taskset".format(self.host))
-        self.logger.debug("=====================================================")
+        self.logger.info("=====================================================")
+        self.logger.info("host {}: NEW taskset".format(self.host))
+        self.logger.info("=====================================================")
         for st in taskset:
             self.logger.debug("host {}: taskid: {} has object_id: {}".format(self.host,st["id"],id(st)))
         self.logger.debug("host {}: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(self.host))
@@ -91,9 +91,9 @@ class GenodeSession(AbstractSession):
         self.logger.debug("host {}: taskset BINS_SENT".format(self.host))
         self.logger.debug("=====================================================")
         self._start()
-        self.logger.debug("=====================================================")
-        self.logger.debug("host {}: taskset STARTED".format(self.host))
-        self.logger.debug("=====================================================")
+        self.logger.info("=====================================================")
+        self.logger.info("host {}: taskset STARTED".format(self.host))
+        self.logger.info("=====================================================")
 
     def stop(self):
         self._stop()
@@ -121,7 +121,7 @@ class GenodeSession(AbstractSession):
             done = done and ((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
         
         # if all jobs are done, we are not running anymore
-        self.logger.debug("host {}: done is {}".format(self.host, done))
+        self.logger.debug("host {}:finished: done is {}".format(self.host, done))
         return done
 
     
@@ -135,6 +135,7 @@ class GenodeSession(AbstractSession):
             size = int.from_bytes(data, 'little')
         except socket.error as e:
             self.logger.debug('host {}: error while receiving: {}'.format(self.host, e))
+            self.logger.info('host {}: nothing to receive'.format(self.host))
             return False
         finally:
             self._socket.settimeout(timeout)
