@@ -286,7 +286,7 @@ class GenodeSession(AbstractSession):
             raise TypeError("taskset must be type TaskSet") 
         list_item_to_name = lambda x : "periodictask"
         description = dicttoxml.dicttoxml(self.set.description(), attr_type=False, root=False, item_func=list_item_to_name)
-        self.logger.debug('host {}: Description about to send: \n{}\n '.format(self.host, xml.dom.minidom.parseString(description).toprettyxml()))
+        self.logger.info('host {}: Description about to send: \n{}\n '.format(self.host, xml.dom.minidom.parseString(description).toprettyxml()))
         
         
         self.logger.debug("host {}: Sending taskset description.".format(self.host))
