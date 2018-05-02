@@ -226,9 +226,9 @@ class GenodeSession(AbstractSession):
                 else:
                     self.logger.critical("host {}: Unknown event type {}".format(self.host,_type))
 
-        except ValueError:
+        except (ValueError,TypeError) as e:
             self.logger.critical("host {}: 'profile'-node of event has unknown structure"+
-                                 " and can not be parsed. TaskSet stopped.".format(self.host))
+                                 " and can not be parsed. TaskSet stopped.\nError: {}".format(self.host,e ))
             return False
 
         return True # task-set changed

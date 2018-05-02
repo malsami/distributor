@@ -109,9 +109,9 @@ class Machine(threading.Thread):
 							if self._session is not None:
 								if self._session.run():
 									self.logger.info("id {}: listener: have session, received a profile".format(self.id))
-								if self._monitor is not None and self._current_set is not None:
-									self._monitor.__taskset_event__(self._current_set)
-							time.sleep(1)
+									if self._monitor is not None and self._current_set is not None:
+										self._monitor.__taskset_event__(self._current_set)
+							time.sleep(2)
 
 					else:#_current_set is None
 						if self._continue:#check for soft shutdown
