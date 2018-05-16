@@ -36,7 +36,15 @@ from subprocess import *
 import importlib
 import copy
 
-
+def clean_id(path, id, logger):
+    Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
+    pids = Popen(['{}/grep_screen.sh'.format(path), str(id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+    c = 0
+    for p in pids:
+        Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
+        Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)])
+        c+=1
+    logger.debug("clean_id():for id {} removed {} screen(s)".format(id, c))
 
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
@@ -51,7 +59,7 @@ class Distributor:
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.DEBUG)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
         with open(self._kill_log, 'w') as swipe_log:
@@ -108,20 +116,17 @@ class Distributor:
                     if(kill_ip is not None):
                         try:
                             kill_id=int(kill_ip[-1])
-                            kill_pid=self.id_to_pid[kill_id]
-                            self.logger.debug("kill_log_killer: Trying to kill pid: {} and id:{}".format(kill_pid,kill_id))
-                            Popen(["{}/clean_id.sh".format(self.script_dir), str(kill_id), kill_pid])
-
-                            self.logger.info("kill_log_killer: killed host with ip: {} id: {} and pid: {}".format(kill_ip, kill_id, kill_pid))                    
+                            self.logger.debug("kill_log_killer: Trying to kill id: {} ".format(kill_id))
+                            clean_id(self.script_dir, kill_id, self.logger)
+                            self.logger.info("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
                             del self.id_to_pid[kill_id]
                         except KeyError as e:
                             self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
                         kill_ip = None
                         kill_id = ""
-                        kill_pid = ""
+                        
             in_str =[]
             #Continue searching
-
 
 
     def get_distributor_state(self):    
@@ -242,10 +247,10 @@ class Distributor:
 
     def kill_all_machines(self):
         #hard kill, callable from outside
-        self.logger.info("Killing machines...")
+        self.logger.info("\n====############=====\nKilling machines")
         for m in self._machines:
             m[1].set()
-        self.logger.info("All machines shuting down.")
+        self.logger.info("\nAll machines shuting down.\n====############=====")
 
     def _clean_machines(self):
         #cleans up machines which are not running
@@ -253,8 +258,9 @@ class Distributor:
         dead = []
         while self._machines:
             time.sleep(10)
-            self.logger.info("cleaner: state of current machines: {}".format(self.id_to_pid))
-            self.logger.debug("cleaner: looking for inactive machines")
+            self.logger.debug("cleaner: id_to_pid: {}".format(self.id_to_pid))
+            self.logger.debug("cleaner: machinestates: {}".format(self.machinestate))
+            self.logger.info("cleaner: looking for inactive machines")
             for m in self._machines:
                 if m[1].is_set():
                     self.logger.debug("cleaner: found inactive machine with id -{}-".format(m[2]))

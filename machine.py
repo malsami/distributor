@@ -40,12 +40,12 @@ class Machine(threading.Thread):
 		self.script_dir = os.path.dirname(os.path.realpath(__file__))
 		self.logger = logging.getLogger("Machine({})".format(self.id))
 		if not len(self.logger.handlers):
-			self.hdlr = logging.FileHandler('{}/log/machine.log'.format(self.script_dir))
+			self.hdlr = logging.FileHandler('{}/log/machine{}.log'.format(self.script_dir, self.id))
 			self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 			self.hdlr.setFormatter(self.formatter)
 			
 			self.logger.addHandler(self.hdlr)
-			self.logger.setLevel(logging.INFO)
+			self.logger.setLevel(logging.DEBUG)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
@@ -59,6 +59,7 @@ class Machine(threading.Thread):
 		self.stopped = True
 		self.finished = False
 		self._continue = True
+		self.t = 0
 
 		self._pid = "" 
 		self.id_pid=id_pid
@@ -84,9 +85,9 @@ class Machine(threading.Thread):
 								if self._monitor is not None:
 									self._monitor.__taskset_start__(self._current_set)
 								self.logger.info("id {}: Taskset variant processing started.".format(self.id))
-							except TypeError as e:
+							except TypeError as e:#TODO thought this only catches the type error, but also takes other errors...
 								#meaning session params for a quemu instance are not instance of dict(admctrl) or a taskset not of TaskSet
-								self.logger.critical("id {}: {}".format(self.id,e))
+								self.logger.critical("id {}:error while start: {}".format(self.id,e))
 								#should not happen because we check the type in distributor.add_job()
 						
 						elif not self.stopped and self.finished:
@@ -103,15 +104,37 @@ class Machine(threading.Thread):
 							self.logger.debug("id {}: Taskset variant is successfully processed.".format(self.id))
 							self._current_set = None
 							self._session.removeSet()
+							#time.sleep(10)
 						else:#the taskset is not finished
-							self.logger.debug("id {}: have a set and still running, will sleep 1s".format(self.id))
-							self.logger.debug("id {}: listener: is listening".format(self.id))
-							if self._session is not None:
-								if self._session.run():
-									self.logger.info("id {}: listener: have session, received a profile".format(self.id))
-									if self._monitor is not None and self._current_set is not None:
-										self._monitor.__taskset_event__(self._current_set)
-							time.sleep(2)
+							if self.t > 40:
+								# self.logger.critical("id {}:run() no communication for 40s, will check with clear.".format(self.id))
+								# self._session.clear()
+								# self.logger.critical("id {}:run() but clear worked...".format(self.id))
+								self.logger.critical("id {}:run() nothing from the qemu for {}s...".format(self.id, self.t))
+								self.t = 0
+								with open(self._kill_log, "a") as log:
+									log.write(self._host + "\n")
+									self.logger.info("id {}: Qemu instance of {} was killed.".format(self.id, self._host))
+								for task in self._current_set:
+									task.jobs = []
+								self._session.close()
+								self.started = False
+								self.stopped = True
+								self._session_died = True
+								self._session = None
+								
+							else:	
+								self.logger.debug("id {}:run() have a set and still running, will sleep 2s".format(self.id))
+								#self.logger.debug("id {}: listener: is listening".format(self.id))
+								if self._session is not None:
+									if self._session.run():
+										self.t = 0
+										self.logger.info("id {}:run() listener: have session, received a profile".format(self.id))
+										if self._monitor is not None and self._current_set is not None:
+											self._monitor.__taskset_event__(self._current_set)
+								time.sleep(2)
+								self.t+=2
+
 
 					else:#_current_set is None
 						if self._continue:#check for soft shutdown
@@ -128,9 +151,8 @@ class Machine(threading.Thread):
 						else:
 							self.logger.info("id {}: shutting down, continue is False".format(self.id))
 							self.inactive.set()#initiating shutdown with no _current_set
-				except socket.error as e:
-					self.logger.debug("id {}: run says: Host at {} died.".format(self.id, self._host))
-					
+				except (socket.error,socket.timeout) as e:
+					self.logger.debug("id {}: run(): Host at {} died with:".format(self.id, self._host,e))
 					if self._current_set is not None:
 						# the shutdown occured during the task-set processing. The task-set
 						# is reset by clearing the jobs attribute of each task.
@@ -147,7 +169,10 @@ class Machine(threading.Thread):
 					
 			else:
 				while not self._spawn_host():
-					pass
+					time.sleep(2)
+					if not self._continue:
+						self.inactive.set()
+						break
 				while not self._revive_session():
 					time.sleep(5)
 
@@ -179,26 +204,31 @@ class Machine(threading.Thread):
 			while self.id_pid[self.id]:
 				pass
 		except KeyError as e:
-			#Spawn new qemu host and return the pid of the parent process, qemu_ip and mac address
-			pid_and_qemuIP_mac = Popen(["{}/qemu.sh".format(self.script_dir), str(self.id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
-
-			self.logger.debug("id {}: {}".format(self.id, pid_and_qemuIP_mac))
-			self.logger.debug("id {}: ___________________________________".format(self.id))
-			ret_id = int(pid_and_qemuIP_mac[0])
+			#Spawn new qemu host and return the id and qemu_ip if the machine was reachable
+			id_and_qemuIP = Popen(["{}/qemu.sh".format(self.script_dir), str(self.id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+			self.logger.debug("id {}:spawn_host(): {}".format(self.id, id_and_qemuIP))
+			self.logger.debug("id {}:spawn_host(): ___________________________________".format(self.id))
+			ret_id = int(id_and_qemuIP[0])
 			self.logger.debug("id {}: {}".format(self.id, ret_id))
 			if self.id != ret_id:
-				self.logger.info("id {}: something went wrong while spawning a qemu: {}".format(self.id, str(pid_and_qemuIP_mac[0],'utf-8')))
+				self.logger.info("id {}:spawn_host(): something went wrong while spawning a qemu: {}".format(self.id, str(id_and_qemuIP[0],'utf-8')))
 				#so the qemu is killed instantly
-				Popen(["{}/clean_id.sh".format(self.script_dir), str(self.id), str(pid_and_qemuIP_mac[1],'utf-8')])
+				self._clean_id()
 				return False
 			else:
-				self.logger.info("id {}: successfully spawned qemu {}".format(self.id, self.id))
-				self.id_pid[self.id] = str(pid_and_qemuIP_mac[1],'utf-8')
-				self._host = str(pid_and_qemuIP_mac[2],'utf-8')
-				self._qemu_mac = str(pid_and_qemuIP_mac[3],'utf-8')
+				self.logger.info("id {}:spawn_host(): successfully spawned qemu {}".format(self.id, self.id))
+				self.id_pid[self.id] = str(id_and_qemuIP[0],'utf-8')
+				self._host = str(id_and_qemuIP[1],'utf-8')
 				return True
 
-
+	def _clean_id(self):
+		pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(self.id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+		c = 0
+		for p in pids:
+			Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
+			Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(self.id)])
+			c+=1
+		self.logger.debug("id {}: clean_id: removed {} screen(s)".format(self.id,c))
 
 	def _revive_session(self):
 		###Connect to existing host
