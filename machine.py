@@ -112,11 +112,13 @@ class Machine(threading.Thread):
 								# self.logger.critical("id {}:run() but clear worked...".format(self.id))
 								self.logger.critical("id {}:run() nothing from the qemu for {}s...".format(self.id, self.t))
 								self.t = 0
-								with open(self._kill_log, "a") as log:
-									log.write(self._host + "\n")
-									self.logger.info("id {}: Qemu instance of {} was killed.".format(self.id, self._host))
+								self._session._kill_qemu()
+								self.logger.info("id {}: Qemu instance of {} was killed.".format(self.id, self._host))
 								for task in self._current_set:
 									task.jobs = []
+								self._current_generator.put(self._current_set)
+								self._current_set = None
+								self.logger.debug("id {}: Taskset variant is reset and put back".format(self.id))
 								self._session.close()
 								self.started = False
 								self.stopped = True
@@ -158,10 +160,12 @@ class Machine(threading.Thread):
 						# is reset by clearing the jobs attribute of each task.
 						for task in self._current_set:
 							task.jobs = []
-						self.logger.debug("id {}: Taskset variant is reset to continue with it in the new machine".format(self.id))
+						self._current_generator.put(self._current_set)
+						self._current_set = None
+						self.logger.debug("id {}: Taskset variant is reset and dput back".format(self.id))
 						# notify monitor about the unprocessed task-set
-						if self._monitor is not None:
-							self._monitor.__taskset_stop__(self._current_set)#TODO monitor should maybe also provide a method for an abort due to an error
+						# if self._monitor is not None:
+						# 	self._monitor.__taskset_stop__(self._current_set)#TODO monitor should maybe also provide a method for an abort due to an error
 					self.started = False
 					self.stopped = True
 					self._session_died = True
@@ -179,7 +183,9 @@ class Machine(threading.Thread):
 		
 		if self._current_set is not None:
 			# the shutdown occured during the task-set processing. The task-set
-			# is pushed back to the task-set queue.
+			# is reset and pushed back to the task-set queue.
+			for task in self._current_set:
+				task.jobs = []
 			self._current_generator.put(self._current_set)
 			self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.id))
 			# notify monitor about the unprocessed task-set

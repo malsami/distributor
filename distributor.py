@@ -100,7 +100,7 @@ class Distributor:
             self.logger.debug("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
             self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
             self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
-            self.logger.debug("kill_log_killer: len(tasksets): {}".format(len(self._tasksets)))
+            self.logger.debug("kill_log_killer: [len(sets]): {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
             time.sleep(2)
             in_str = []
             with open(self._kill_log, 'r+') as f:
@@ -241,7 +241,7 @@ class Distributor:
 
         # wrap tasksets into an threadsafe iterator
         with self._taskset_list_lock:
-            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, session_params))#TODO will ich hier immer variants aufrufen?
+            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
         self.logger.info("a new job was added")
         self._refresh_machines()
 
@@ -276,8 +276,10 @@ class _TaskSetQueue():
     """Takes an iterator/generator and makes it thread-safe by
     serializing call to the `next` method of given iterator/generator.
     """
-    def __init__(self, iterator, monitor, *session_params):
+    def __init__(self, iterator, monitor, it_length, *session_params):
         self.it = iterator #the tasksets
+        self.total_it_length = it_length
+        self.already_used = 0
         self.lock = threading.Lock()
         self.queue = Queue(maxsize=1000)
         self.in_progress = []
@@ -300,6 +302,7 @@ class _TaskSetQueue():
 
             # keep track of current processed tasksets
             self.in_progress.append(taskset)
+            self.already_used +=1
             return taskset
             
     def empty(self):
@@ -340,6 +343,7 @@ class _TaskSetQueue():
                 for task in taskset:
                     task.jobs = []
                 self.queue.put_nowait(taskset)
+                self.already_used -= 1
             except Full:
                 # We don't care about the missed taskset. Actually, there is a bigger
                 # problem:

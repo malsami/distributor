@@ -111,10 +111,10 @@ class GenodeSession(AbstractSession):
         
     def finished(self):
         if self.tset is None:
-            self.logger.debug("host {}:finished(): there is no tset yet".format(self.host))
+            self.logger.info("host {}:finished(): there is no tset yet".format(self.host))
             return False
         done = True
-        self.logger.debug("host {}:finished(): check for finished".format(self.host))
+        self.logger.info("host {}:finished(): check for finished".format(self.host))
         for task in self.tset:
             self.logger.debug("host {}:finished(): task_id: {} | len(task.jobs): {} | task numberofjobs: {}".format(self.host, task["id"], len(task.jobs), task["numberofjobs"]))
             for j in task.jobs:
@@ -122,7 +122,7 @@ class GenodeSession(AbstractSession):
             done = done and ((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None)
         
         # if all jobs are done, we are not running anymore
-        self.logger.debug("host {}:finished(): done is {}".format(self.host, done))
+        self.logger.info("host {}:finished(): done is {}".format(self.host, done))
         return done
 
     
@@ -158,7 +158,7 @@ class GenodeSession(AbstractSession):
             ascii = temp[0]+'</profile>'
             #now we can be certain the parser will not have issues
             profile = xmltodict.parse(ascii)
-            self.logger.info('host {}:run(): Profile translates to: \n{}\n'.format(self.host, xml.dom.minidom.parseString(ascii).toprettyxml()))
+            self.logger.info('host {}:run(): new Profile translates to: \n{}\n'.format(self.host, xml.dom.minidom.parseString(ascii).toprettyxml()))
         except:
             self.logger.error('host {}:run(): XML event data not parseable.'.format(self.host))
             return False
@@ -429,12 +429,13 @@ class QemuSession(PingSession):
             self._kill_qemu()
             raise e
 
-    def event(self):
+    def run(self):
         try:
-            return PingSession.event(self)
-        except socket.timeout as e:
+            return PingSession.run(self)
+        except:
+            self.logger.error("host {}: an error occured during run: {}".format(self.host))
             self._kill_qemu()
-            raise e
+            raise Exception("socketerror or some other stuff")
 
     def clear(self):
         try:
