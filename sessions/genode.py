@@ -225,6 +225,9 @@ class GenodeSession(AbstractSession):
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
+                elif _type == 'KILLED_BY_PERIOD':
+                    #it was not possible to 
+                    task.jobs = task.jobs[:-1]
                 else:
                     self.logger.critical("host {}:run(): Unknown event type {}".format(self.host,_type))
 

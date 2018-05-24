@@ -8,8 +8,7 @@ import os
 import threading
 import errno
 import time
-from subprocess import * 
-import subprocess as sb
+from subprocess import Popen, PIPE
 
 from sessions.genode import * 
 
@@ -174,6 +173,8 @@ class Machine(threading.Thread):
 			else:
 				while not self._spawn_host():
 					time.sleep(2)
+					if self.inactive.is_set():
+						break
 					if not self._continue:
 						self.inactive.set()
 						break
