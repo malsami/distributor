@@ -433,9 +433,9 @@ class QemuSession(PingSession):
         try:
             return PingSession.run(self)
         except:
-            self.logger.error("host {}: an error occured during run: {}".format(self.host))
+            self.logger.error("host {}: an error occured during run".format(self.host))
             self._kill_qemu()
-            raise Exception("socketerror or some other stuff")
+            raise Exception("socket timeout or some other unknown error")
 
     def clear(self):
         try:

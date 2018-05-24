@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #Naked Variables 
-mac=0a:06:00:00:00:$1
+mac=0a:06:00:00:00:$(printf %x $1)
 bridge=br0
 ip=10.200.45.$1
 tap=tap$1
@@ -14,19 +14,19 @@ sudo brctl addif $bridge $tap
 #setting it to UP
 sudo ip link set dev $tap up
 
-screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac,model=lan9118 -nographic -smp 4 -m 1024 -M realview-pbx-a9 -kernel $image >> /vagrant/distributor_service/log/$1genode_dump.txt"
+screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac,model=lan9118 -nographic -smp 4 -m 1024 -M realview-pbx-a9 -kernel $image >> ./log/$1genode_dump.txt"
 #getting pid of the screen, killing the screen will kill the qemu as well
 #pid="$(ps -ef | grep -ni -e "SCREEN -dmS qemu$1" | grep -v "grep" | awk '{print $2}')"
 
 #giving genode time to set things up
-sleep 20
+sleep 30
 
  
 
 ping -c 1 $ip > /dev/null
 if [ $? -eq 0 ]
 then
-	printf "%s %s %s %s" $1 $ip 
+	printf "%s %s" $1 $ip 
 else
-	printf "%s %s %s %s" -1 $ip
+	printf "%s %s" -1 $ip
 fi

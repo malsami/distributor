@@ -50,7 +50,7 @@ class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
     def __init__(self, max_machine = 1):
-        self.max_allowed_machines = 7 #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf
+        self.max_allowed_machines = 42 #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         
         self.logger = logging.getLogger('Distributor')
