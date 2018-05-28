@@ -1,23 +1,19 @@
 import socket
-import code
 import struct
 import re
 import os
-import sys
-import subprocess
-from collections import Iterable
 import logging
 import xmltodict
 import dicttoxml
-from abc import ABCMeta, abstractmethod
+import time
+import xml.dom.minidom # for xml parsing in the logfiles
 from session import AbstractSession
-sys.path.append('../')
+import sys
+sys.path.append('../') # so we can find taskgen
 from taskgen.taskset import TaskSet
 from taskgen.task import Job
-import taskgen
-import time
-import json
-import xml.dom.minidom #for xml parsing in the logfiles
+
+
 
 # capsulation avoids attribute pollution
 class MagicNumber:
@@ -190,26 +186,22 @@ class GenodeSession(AbstractSession):
                         task.jobs.append(Job())
                     task.jobs[-1].start_date = _timestamp
                 elif _type == "EXIT":
-                    if not task.jobs or task.jobs[-1].end_date is not None:
-                        task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
                 elif _type == "EXIT_CRITICAL":
-                    if not task.jobs or task.jobs[-1].end_date is not None:
-                        task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
+                elif _type == 'EXIT_PERIOD':
+                    #it was not possible to 
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
                 elif _type == "EXIT_EXTERNAL":
-                    if not task.jobs or task.jobs[-1].end_date is not None:
-                        task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
                 elif _type == "EXIT_ERROR":
-                    if not task.jobs or task.jobs[-1].end_date is not None:
-                        task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
@@ -220,14 +212,9 @@ class GenodeSession(AbstractSession):
                     	self.logger.critical("host {}:run(): JOBS_DONE from Genode is received but jobs is not number of jobs long yet.".format(self.host))
                 elif _type == "NOT_SCHEDULED":
                 	#kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
-                    if not task.jobs or task.jobs[-1].end_date is not None:
-                        task.jobs.append(Job())
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
-                elif _type == 'KILLED_BY_PERIOD':
-                    #it was not possible to 
-                    task.jobs = task.jobs[:-1]
                 else:
                     self.logger.critical("host {}:run(): Unknown event type {}".format(self.host,_type))
 
