@@ -15,8 +15,6 @@ sudo brctl addif $bridge $tap
 sudo ip link set dev $tap up
 
 screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac,model=lan9118 -nographic -smp 4 -m 1024 -M realview-pbx-a9 -kernel $image >> ./log/$1genode_dump.txt"
-#getting pid of the screen, killing the screen will kill the qemu as well
-#pid="$(ps -ef | grep -ni -e "SCREEN -dmS qemu$1" | grep -v "grep" | awk '{print $2}')"
 
 #giving genode time to set things up
 sleep 30

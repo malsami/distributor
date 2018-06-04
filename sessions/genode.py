@@ -212,7 +212,9 @@ class GenodeSession(AbstractSession):
                     	self.logger.critical("host {}:run(): JOBS_DONE from Genode is received but jobs is not number of jobs long yet.".format(self.host))
                 elif _type == "NOT_SCHEDULED":
                 	#kommt wenn die periode kommen würde, aber optimizer oder rta start verhindern
-                    # take last job of the list and set its end date.
+                    # create new job in list and set its end date.
+                    if not task.jobs or task.jobs[-1].start_date is not None:
+                        task.jobs.append(Job())
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
                 else:
@@ -425,7 +427,7 @@ class QemuSession(PingSession):
         except:
             self.logger.error("host {}: an error occured during run".format(self.host))
             self._kill_qemu()
-            raise Exception("socket timeout or some other unknown error")
+            raise socket.error, "socket timeout or some other unknown error"
 
     def clear(self):
         try:
