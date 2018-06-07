@@ -4,30 +4,41 @@ from taskgen.taskset import TaskSet
 from taskgen.task import Task
 from taskgen.blocks import *
 
-class SetForRobert(TaskSet):
 
-    #just commt out if it'S to much or reduce numberOfVariants
-    # Hey           =     1
-    # Pi            =    10
-    # cond_42       =    10
-    # cond_mod      =    10
-    # linpack       =    10
-    # ---------------------
-    # 1^10^10^10^10 = 10000
+def exampleTest():
+    
+    set = TaskSet([])
+    
+    task01 = Task(hey.Value(1), period.Value(5000), priority.Value(0),{"numberofjobs" : 5})
+    set.append(task01)
+    task02 = Task(pi.Variants(5), period.Value(0), priority.Value(0))
+    set.append(task02)
+    task03 = Task(cond_42.Variants(5), period.Value(0), priority.Value(0))
+    set.append(task03)
+    task04 = Task(cond_mod.Variants(5), period.Value(0), priority.Value(0))
+    set.append(task04)
+    task05 = Task(linpack.Variants(5), period.Value(0), priority.Value(0))
+    set.append(task05)
 
-    #for even more Tasksets replace HighRandom() with Variants() then not only 1 Value is used but all possible values (at period and at priority possible)
-    #or add even more Tasks
+    return set
 
-    def __init__(self):
-        numberOfVariants = 10
-        super().__init__()
-        task01 = Task(hey.HelloWorld, period.HighRandom(), priority.HighRandom())
-        self.append(task01)
-        task02 = Task(pi.Variants(numberOfVariants), period.HighRandom(), priority.HighRandom())
-        self.append(task02)
-        task03 = Task(cond_42.Variants(numberOfVariants), period.HighRandom(), priority.HighRandom())
-        self.append(task03)
-        task04 = Task(cond_mod.Variants(numberOfVariants), period.HighRandom(), priority.HighRandom())
-        self.append(task03)
-        task05 = Task(linpack.Variants(numberOfVariants), period.HighRandom(), priority.HighRandom())
-        self.append(task03)
+
+
+
+
+def example5():
+    
+    set = TaskSet([])
+    
+    task01 = Task(hey.Value(1), period.Value(5000), priority.HighRandom(),{"numberofjobs" : 5})
+    set.append(task01)
+    task02 = Task(pi.Variants(5), period.Value(0), priority.HighRandom())
+    set.append(task02)
+    task03 = Task(cond_42.Variants(5), period.Value(0), priority.HighRandom())
+    set.append(task03)
+    task04 = Task(cond_mod.Variants(5), period.Value(0), priority.HighRandom())
+    set.append(task04)
+    task05 = Task(linpack.Variants(5), period.Value(0), priority.HighRandom())
+    set.append(task05)
+
+    return set

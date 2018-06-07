@@ -59,7 +59,7 @@ class GenodeSession(AbstractSession):
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging.INFO)
         self.logger.info("=====================================================")
         self.logger.info("host {}: Connection established".format(self.host))
         self.logger.info("=====================================================")
@@ -81,11 +81,11 @@ class GenodeSession(AbstractSession):
         self._optimize()
         self._send_descs()
         self.logger.debug("=====================================================")
-        self.logger.debug("host {}: taskset DESCS_SENT".format(self.host))
+        self.logger.info("host {}: taskset DESCS_SENT".format(self.host))
         self.logger.debug("=====================================================")
         self._send_bins()
         self.logger.debug("=====================================================")
-        self.logger.debug("host {}: taskset BINS_SENT".format(self.host))
+        self.logger.info("host {}: taskset BINS_SENT".format(self.host))
         self.logger.debug("=====================================================")
         self._start()
         self.logger.info("=====================================================")
@@ -427,7 +427,7 @@ class QemuSession(PingSession):
         except:
             self.logger.error("host {}: an error occured during run".format(self.host))
             self._kill_qemu()
-            raise socket.error, "socket timeout or some other unknown error"
+            raise socket.error("socket timeout or some other unknown error")
 
     def clear(self):
         try:

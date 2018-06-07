@@ -32,7 +32,7 @@ def clean_id(path, id, logger):
         Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
         Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)])
         c+=1
-    logger.debug("clean_id():for id {} removed {} screen(s)".format(id, c))
+    logger.info("clean_id():for id {} removed {} screen(s)".format(id, c))
 
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
@@ -47,7 +47,7 @@ class Distributor:
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging.INFO)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
         with open(self._kill_log, 'w') as swipe_log:
@@ -88,7 +88,7 @@ class Distributor:
             self.logger.debug("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
             self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
             self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
-            self.logger.debug("kill_log_killer: [len(sets]): {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
+            self.logger.info("kill_log_killer: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
             time.sleep(2)
             in_str = []
             with open(self._kill_log, 'r+') as f:
@@ -104,9 +104,9 @@ class Distributor:
                     if(kill_ip is not None):
                         try:
                             kill_id=int(kill_ip[-1])
-                            self.logger.debug("kill_log_killer: Trying to kill id: {} ".format(kill_id))
+                            self.logger.info("kill_log_killer: Trying to kill id: {} ".format(kill_id))
                             clean_id(self.script_dir, kill_id, self.logger)
-                            self.logger.info("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
+                            self.logger.debug("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
                             del self.id_to_pid[kill_id]
                         except KeyError as e:
                             self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))

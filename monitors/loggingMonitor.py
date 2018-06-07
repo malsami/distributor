@@ -24,7 +24,7 @@ class LoggingMonitor(AbstractMonitor):
         for task in taskset:
             self.logger.info("task: {}".format(task.id))
             for job in task.jobs:
-                self.logger.info("{} {}".format(job.start_date, job.end_date))
+                self.logger.info("{} {} {}".format(job.start_date, job.end_date, job.exit_value))
 
     def __taskset_stop__(self, taskset):
         for task in taskset:

@@ -44,7 +44,7 @@ class Machine(threading.Thread):
 			self.hdlr.setFormatter(self.formatter)
 			
 			self.logger.addHandler(self.hdlr)
-			self.logger.setLevel(logging.DEBUG)
+			self.logger.setLevel(logging.INFO)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
@@ -105,7 +105,7 @@ class Machine(threading.Thread):
 							self._session.removeSet()
 							#time.sleep(10)
 						else:#the taskset is not finished
-							if self.t > 400:
+							if self.t > 80:
 								# self.logger.critical("id {}:run() no communication for 40s, will check with clear.".format(self.id))
 								# self._session.clear()
 								# self.logger.critical("id {}:run() but clear worked...".format(self.id))
