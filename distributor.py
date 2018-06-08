@@ -30,7 +30,7 @@ def clean_id(path, id, logger):
     c = 0
     for p in pids:
         Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
-        Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)])
+        Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)], stdout=PIPE, stderr=PIPE)
         c+=1
     logger.info("clean_id():for id {} removed {} screen(s)".format(id, c))
 
