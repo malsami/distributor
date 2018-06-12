@@ -85,7 +85,7 @@ class Distributor:
         kill_ip = None
         while True: 
             self.logger.debug("kill_log_killer: Entering kill function")
-            self.logger.debug("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
+            self.logger.info("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
             self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
             self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
             self.logger.info("kill_log_killer: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
@@ -210,10 +210,11 @@ class Distributor:
             else:
                 self.logger.debug("no machines currently running")
 
-    def add_job(self, taskset, monitor = None, *session_params):
+    def add_job(self, taskset, monitor = None, offset = 0, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
         #   :param taskset taskgen.taskset.TaskSet: a taskset for the distribution
         #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
+        #   :param offset  number of tasksets that should be discarded from the head of the generator
         #   :param session_params: optional parameters which are passed to the
         #   `start` method of the actual session. Pay attention: Theses parameters
         #   must be implemented by the session class. A good example is the
@@ -228,10 +229,17 @@ class Distributor:
                 raise TypeError("monitor must be of type AbstractMonitor")
 
         # wrap tasksets into an threadsafe iterator
-        with self._taskset_list_lock:
-            self._tasksets.append(_TaskSetQueue(taskset.variants(), monitor, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
-        self.logger.info("a new job was added")
-        self._refresh_machines()
+        generator = taskset.variants()
+        try:
+            for i in range(offset):
+                discard = generator.__next__()
+            with self._taskset_list_lock:
+                self._tasksets.append(_TaskSetQueue(generator, monitor, offset, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
+            self.logger.info("a new job was added, offset was {}".format(offset))
+            self._refresh_machines()
+        except StopIteration:
+            self.logger.error("offset was bigger than taskset size, no job was added")
+            
 
     def kill_all_machines(self):
         #hard kill, callable from outside
@@ -264,10 +272,10 @@ class _TaskSetQueue():
     """Takes an iterator/generator and makes it thread-safe by
     serializing call to the `next` method of given iterator/generator.
     """
-    def __init__(self, iterator, monitor, it_length, *session_params):
+    def __init__(self, iterator, monitor, start_from, it_length, *session_params):
         self.it = iterator #the tasksets
         self.total_it_length = it_length
-        self.already_used = 0
+        self.already_used = start_from
         self.lock = threading.Lock()
         self.queue = Queue(maxsize=1000)
         self.in_progress = []
