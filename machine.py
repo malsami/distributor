@@ -126,7 +126,6 @@ class Machine(threading.Thread):
 								
 							else:	
 								self.logger.debug("id {}:run() have a set and still running, will sleep 2s".format(self.id))
-								#self.logger.debug("id {}: listener: is listening".format(self.id))
 								if self._session is not None:
 									if self._session.run():
 										self.t = 0
@@ -223,8 +222,8 @@ class Machine(threading.Thread):
 				self._clean_id()
 				return False
 			else:
-				self.logger.info("id {}:spawn_host(): successfully spawned qemu {}".format(self.id, self.id))
-				self.id_pid[self.id] = str(id_and_qemuIP[0],'utf-8')
+				self.logger.info("id {}:spawn_host(): successfully spawned qemu {}".format(self.id, int(id_and_qemuIP[0])))
+				self.id_pid[self.id] = int(id_and_qemuIP[0])
 				self._host = str(id_and_qemuIP[1],'utf-8')
 				return True
 
@@ -233,7 +232,7 @@ class Machine(threading.Thread):
 		c = 0
 		for p in pids:
 			Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
-			Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(self.id)])
+			Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(self.id)], stdout=PIPE, stderr=PIPE)
 			c+=1
 		self.logger.debug("id {}: clean_id: removed {} screen(s)".format(self.id,c))
 

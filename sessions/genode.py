@@ -59,7 +59,7 @@ class GenodeSession(AbstractSession):
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.DEBUG)
         self.logger.info("=====================================================")
         self.logger.info("host {}: Connection established".format(self.host))
         self.logger.info("=====================================================")

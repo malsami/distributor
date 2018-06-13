@@ -23,7 +23,7 @@ sys.path.append('../')
 from taskgen.taskset import TaskSet
 
 
-
+"""
 def clean_id(path, id, logger):
     Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
     pids = Popen(['{}/grep_screen.sh'.format(path), str(id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
@@ -33,7 +33,7 @@ def clean_id(path, id, logger):
         Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)], stdout=PIPE, stderr=PIPE)
         c+=1
     logger.info("clean_id():for id {} removed {} screen(s)".format(id, c))
-
+"""
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
@@ -47,7 +47,7 @@ class Distributor:
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.DEBUG)
 
         self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
         with open(self._kill_log, 'w') as swipe_log:
@@ -105,13 +105,20 @@ class Distributor:
                         try:
                             kill_id=int(kill_ip[-1])
                             self.logger.info("kill_log_killer: Trying to kill id: {} ".format(kill_id))
-                            clean_id(self.script_dir, kill_id, self.logger)
+                            Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
+                            pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(kill_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+                            c = 0
+                            for p in pids:
+                                Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
+                                Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(kill_id)], stdout=PIPE, stderr=PIPE)
+                                c+=1
+                            self.logger.info("kill_log_killer():for id {} removed {} screen(s)".format(kill_id, c))
                             self.logger.debug("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
                             del self.id_to_pid[kill_id]
                         except KeyError as e:
                             self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
                         kill_ip = None
-                        kill_id = ""
+                        kill_id = -1
                         
             in_str =[]
             #Continue searching
@@ -165,7 +172,7 @@ class Distributor:
             if working:
                 if not self._machines:
                     for c in range(0, self._max_machine):
-                        new_id = ""
+                        new_id = -1
                         found = False
                         for k, v in self.machinestate.items():
                             if not found:
@@ -173,7 +180,8 @@ class Distributor:
                                     found = True
                                     new_id = k
                                     self.machinestate[k] = 1
-                        if new_id != "":
+                                    break
+                        if new_id != -1:
                             m_running = threading.Event()
                             machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                             machine.start()
@@ -186,7 +194,7 @@ class Distributor:
                     l = self._max_machine - len(self._machines)
                     if l > 0:
                         for c in range(0,l):
-                            new_id = ""
+                            new_id = -1
                             found = False
                             for k, v in self.machinestate.items():
                                 if not found:
@@ -194,7 +202,8 @@ class Distributor:
                                         found = True
                                         new_id = k
                                         self.machinestate[k] = 1
-                            if new_id != "":
+                                        break
+                            if new_id != -1:
                                 m_running = threading.Event()
                                 machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
                                 machine.start()
