@@ -44,7 +44,7 @@ class Machine(threading.Thread):
 			self.hdlr.setFormatter(self.formatter)
 			
 			self.logger.addHandler(self.hdlr)
-			self.logger.setLevel(logging.INFO)
+			self.logger.setLevel(logging.DEBUG)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
@@ -179,6 +179,11 @@ class Machine(threading.Thread):
 						break
 				while not self._revive_session():
 					time.sleep(5)
+					if self.inactive.is_set():
+						break
+					if not self._continue:
+						self.inactive.set()
+						break
 
 		
 		if self._current_set is not None:

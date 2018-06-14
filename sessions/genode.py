@@ -283,6 +283,7 @@ class GenodeSession(AbstractSession):
         self._send(len(meta),meta)
         
     def _clear(self):
+        self.run()
         self.tset = None
         self.admctrl = None
         self.logger.debug('host {}:_clear(): Clear tasks on server.'.format(self.host))
@@ -311,7 +312,6 @@ class GenodeSession(AbstractSession):
 
     
     def _send_bins(self):
-        self.run()
         if not isinstance(self.tset, TaskSet):
             raise TypeError("_send_bins(): taskset must be type TaskSet") 
 
