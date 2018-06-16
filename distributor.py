@@ -49,11 +49,11 @@ class Distributor:
             self.logger.addHandler(self.hdlr)
             self.logger.setLevel(logging.DEBUG)
 
-        self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        with open(self._kill_log, 'w') as swipe_log:
-            swipe_log.write("")
+        #self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
+        #with open(self._kill_log, 'w') as swipe_log:
+        #    swipe_log.write("")
 
-        open(self._kill_log, 'a').close()
+        #open(self._kill_log, 'a').close()
         
         self._max_machine = max_machine
         self._machines = []
@@ -68,7 +68,7 @@ class Distributor:
         
         self._bridge = "br0"
         self._cleaner = None
-        self.id_to_pid={}
+        self.id_to_machine={}
         self.machinestate={}
         for i in range(self.max_allowed_machines):
             index=i+1
@@ -85,42 +85,42 @@ class Distributor:
         kill_ip = None
         while True: 
             self.logger.debug("kill_log_killer: Entering kill function")
-            self.logger.info("kill_log_killer: id_to_pid: {}".format(self.id_to_pid))
+            self.logger.info("kill_log_killer: id_to_machine: {}".format(self.id_to_machine))
             self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
             self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
             self.logger.info("kill_log_killer: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
-            time.sleep(2)
-            in_str = []
-            with open(self._kill_log, 'r+') as f:
-                in_str = f.read().split("\n")
-                f.seek(0)
-                f.write("")
-                f.truncate()
-            self.logger.debug("kill_log_killer: file content: {}".format(in_str))
-            for line in in_str:
-                if line != '':
-                    kill_ip = line.split(".")
-                    self.logger.debug("kill_log_killer: found {}".format(kill_ip))
-                    if(kill_ip is not None):
-                        try:
-                            kill_id=int(kill_ip[-1])
-                            self.logger.info("kill_log_killer: Trying to kill id: {} ".format(kill_id))
-                            Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
-                            pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(kill_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
-                            c = 0
-                            for p in pids:
-                                Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
-                                Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(kill_id)], stdout=PIPE, stderr=PIPE)
-                                c+=1
-                            self.logger.info("kill_log_killer():for id {} removed {} screen(s)".format(kill_id, c))
-                            self.logger.debug("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
-                            del self.id_to_pid[kill_id]
-                        except KeyError as e:
-                            self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
-                        kill_ip = None
-                        kill_id = -1
-                        
-            in_str =[]
+            time.sleep(5)
+            #in_str = []
+            #with open(self._kill_log, 'r+') as f:
+            #    in_str = f.read().split("\n")
+            #    f.seek(0)
+            #    f.write("")
+            #    f.truncate()
+            #self.logger.debug("kill_log_killer: file content: {}".format(in_str))
+            #for line in in_str:
+            #    if line != '':
+            #        kill_ip = line.split(".")
+            #        self.logger.debug("kill_log_killer: found {}".format(kill_ip))
+            #        if(kill_ip is not None):
+            #            try:
+            #                kill_id=int(kill_ip[-1])
+            #                self.logger.info("kill_log_killer: Trying to kill id: {} ".format(kill_id))
+            #                Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
+            #                pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(kill_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+            #                c = 0
+            #                for p in pids:
+            #                    Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
+            #                    Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(kill_id)], stdout=PIPE, stderr=PIPE)
+            #                    c+=1
+            #                self.logger.info("kill_log_killer():for id {} removed {} screen(s)".format(kill_id, c))
+            #                self.logger.debug("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
+            #                del self.id_to_pid[kill_id]
+            #            except KeyError as e:
+            #                self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
+            #            kill_ip = None
+            #            kill_id = -1
+            #            
+            #in_str =[]
             #Continue searching
 
 
@@ -183,8 +183,9 @@ class Distributor:
                                     break
                         if new_id != -1:
                             m_running = threading.Event()
-                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
+                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self.id_to_machine)
                             machine.start()
+                            self.id_to_machine[new_id] = machine
                             self._machines.append((machine, m_running, new_id))
                     self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
                     self._cleaner.start()
@@ -205,8 +206,9 @@ class Distributor:
                                         break
                             if new_id != -1:
                                 m_running = threading.Event()
-                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self._kill_log, self.id_to_pid)
+                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self.id_to_machine)
                                 machine.start()
+                                self.id_to_machine[new_id] = machine
                                 self._machines.append((machine,m_running, new_id))
                         self.logger.info("started {} additional machines".format(abs(l)))
                     elif l < 0:
@@ -263,7 +265,7 @@ class Distributor:
         dead = []
         while self._machines:
             time.sleep(10)
-            self.logger.debug("cleaner: id_to_pid: {}".format(self.id_to_pid))
+            self.logger.debug("cleaner: id_to_machine: {}".format(self.id_to_machine))
             self.logger.debug("cleaner: machinestates: {}".format(self.machinestate))
             self.logger.info("cleaner: looking for inactive machines")
             for m in self._machines:
