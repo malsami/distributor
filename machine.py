@@ -28,7 +28,7 @@ class Machine(threading.Thread):
 		#self._kill_log = kill_log
 		self._port = port
 		#self._qemu_mac = "" #Mac address of qemu instance that it spawns
-		self.start_up_delay = 30
+		self.start_up_delay = 20
 
 		self.inactive = m_running #threading.Event() |used to shut instance down
 		self._session_class = session_class
@@ -52,7 +52,7 @@ class Machine(threading.Thread):
 		self._taskset_list = tasksets
 		self._current_set = None
 		self._current_set_tries = 1
-		self._current_set_max_tries = 10
+		self._current_set_max_tries = 5
 		self._set_running = False
 		self._current_generator = None
 
@@ -109,7 +109,7 @@ class Machine(threading.Thread):
 							self._session.removeSet()
 							#time.sleep(10)
 						else:#the taskset is not finished
-							if self.t > 40:
+							if self.t > 24:
 								# self.logger.critical("id {}:run() no communication for 40s, will check with clear.".format(self.machine_id))
 								# self._session.clear()
 								# self.logger.critical("id {}:run() but clear worked...".format(self.machine_id))
