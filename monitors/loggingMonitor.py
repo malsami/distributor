@@ -31,6 +31,10 @@ class LoggingMonitor(AbstractMonitor):
             task.jobs = []
         pass
 
+    def __taskset_bad__(self, taskset, n):
+        """After n tries the taskset could not be executedcorrectly"""
+        self.logger.info('BAD: after {} tries, the following taskset could not be processed:\n{}'.format(n, str(taskset)))
+        pass
 
 
 

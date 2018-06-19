@@ -23,125 +23,60 @@ sys.path.append('../')
 from taskgen.taskset import TaskSet
 
 
-"""
-def clean_id(path, id, logger):
-    Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
-    pids = Popen(['{}/grep_screen.sh'.format(path), str(id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
-    c = 0
-    for p in pids:
-        Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
-        Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(id)], stdout=PIPE, stderr=PIPE)
-        c+=1
-    logger.info("clean_id():for id {} removed {} screen(s)".format(id, c))
-"""
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
-    def __init__(self, max_machine = 1):
-        self.max_allowed_machines = 42 #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf
+    def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001):
+        self.max_allowed_machines = max_allowed #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf it can be lower but not higher
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         
         self.logger = logging.getLogger('Distributor')
+        self.logging_level = logging_level
         if not len(self.logger.handlers):
             self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(self.logging_level)
 
-        #self._kill_log = '/tmp/taskgen_qemusession_ip_kill.log'
-        #with open(self._kill_log, 'w') as swipe_log:
-        #    swipe_log.write("")
-
-        #open(self._kill_log, 'a').close()
-        
         self._max_machine = max_machine
         self._machines = []
 
-        self._port = 3001
-        self._session_class = getattr(importlib.import_module("sessions.genode"), "QemuSession")
-        
-        
+        self._bridge = bridge
+        self._port = port
+        self._session_class = getattr(importlib.import_module("sessions.genode"), session_type)
 
-        self._taskset_list_lock = threading.Lock()
-        self._tasksets = []
+        self._jobs_list_lock = threading.Lock()
+        self._jobs = []
         
-        self._bridge = "br0"
-        self._cleaner = None
         self.id_to_machine={}
         self.machinestate={}
         for i in range(self.max_allowed_machines):
             index=i+1
             self.machinestate[index]=0
-        self._qemu_killer=threading.Thread(target=Distributor._kill_log_killer, args=(self,))
-        self._qemu_killer.start()
+        
+        self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))
+                    
         self.logger.info("=====================================================")
         self.logger.info("Distributor started")
         self.logger.info("=====================================================")
-
-
-    def _kill_log_killer(self):
-        self.logger.info("kill_log_killer: spawned kill log killer")
-        kill_ip = None
-        while True: 
-            self.logger.debug("kill_log_killer: Entering kill function")
-            self.logger.info("kill_log_killer: id_to_machine: {}".format(self.id_to_machine))
-            self.logger.debug("kill_log_killer: machinestates: {}".format(self.machinestate))
-            self.logger.debug("kill_log_killer: machines: {}".format(self._machines))
-            self.logger.info("kill_log_killer: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._tasksets]))
-            time.sleep(5)
-            #in_str = []
-            #with open(self._kill_log, 'r+') as f:
-            #    in_str = f.read().split("\n")
-            #    f.seek(0)
-            #    f.write("")
-            #    f.truncate()
-            #self.logger.debug("kill_log_killer: file content: {}".format(in_str))
-            #for line in in_str:
-            #    if line != '':
-            #        kill_ip = line.split(".")
-            #        self.logger.debug("kill_log_killer: found {}".format(kill_ip))
-            #        if(kill_ip is not None):
-            #            try:
-            #                kill_id=int(kill_ip[-1])
-            #                self.logger.info("kill_log_killer: Trying to kill id: {} ".format(kill_id))
-            #                Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
-            #                pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(kill_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
-            #                c = 0
-            #                for p in pids:
-            #                    Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
-            #                    Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(kill_id)], stdout=PIPE, stderr=PIPE)
-            #                    c+=1
-            #                self.logger.info("kill_log_killer():for id {} removed {} screen(s)".format(kill_id, c))
-            #                self.logger.debug("kill_log_killer: killed host with ip: {} and id: {}".format(kill_ip, kill_id))                    
-            #                del self.id_to_pid[kill_id]
-            #            except KeyError as e:
-            #                self.logger.error("kill_log_killer: the qemu with id {} was not up".format(str(int(kill_ip[-1]))))
-            #            kill_ip = None
-            #            kill_id = -1
-            #            
-            #in_str =[]
-            #Continue searching
-
+        
+        self._cleaner.start()
+        
 
     def get_distributor_state(self):    
         #function to check if the distributor is already working
         #under the assumption that the distributor is working as soon as there are tasksets to work on
-
         ret = False
-        
-        with self._taskset_list_lock:
-            
-            if self._tasksets:
-                
+        with self._jobs_list_lock:
+            if self._jobs:
                 ret = True 
-       
         return ret
+
 
     def get_max_machine_value(self):
         """Returns the current max_machine value."""
         return self._max_machine 
-
 
 
     def set_max_machine_value(self, new_value):
@@ -149,7 +84,6 @@ class Distributor:
         :param new_value int: positive non zero value
         :raises ValueError: new_value is not a natural number
         """
-        
         if(isinstance(new_value, int) and 0 < new_value):
             if new_value > self.max_allowed_machines:
                 self.logger.debug("the new value in set_max_machine_value was {}, thus bigger than the max_allowed_machines of {} the _max_machine value was set to the max_allowed_machines value".format(new_value,self.max_allowed_machines))
@@ -165,8 +99,8 @@ class Distributor:
         #Adjusts the amount of running starter threads to the current max_machine value.
         #first checking if 
         working = False
-        with self._taskset_list_lock:
-            if self._tasksets:
+        with self._jobs_list_lock:
+            if self._jobs:
                 working = True
             
             if working:
@@ -183,12 +117,10 @@ class Distributor:
                                     break
                         if new_id != -1:
                             m_running = threading.Event()
-                            machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self.id_to_machine)
+                            machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
                             machine.start()
                             self.id_to_machine[new_id] = machine
                             self._machines.append((machine, m_running, new_id))
-                    self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))#cleans machines from _machines which terminated
-                    self._cleaner.start()
                     self.logger.info("started {} machines".format(len(self._machines)))
                 
                 else:
@@ -206,7 +138,7 @@ class Distributor:
                                         break
                             if new_id != -1:
                                 m_running = threading.Event()
-                                machine = Machine(new_id, self._taskset_list_lock, self._tasksets, self._port, self._session_class, self._bridge, m_running, self.id_to_machine)
+                                machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
                                 machine.start()
                                 self.id_to_machine[new_id] = machine
                                 self._machines.append((machine,m_running, new_id))
@@ -220,6 +152,7 @@ class Distributor:
                         self.logger.info("closed {} machines".format(abs(l)))
             else:
                 self.logger.debug("no machines currently running")
+
 
     def add_job(self, taskset, monitor = None, offset = 0, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
@@ -244,8 +177,8 @@ class Distributor:
         try:
             for i in range(offset):
                 discard = generator.__next__()
-            with self._taskset_list_lock:
-                self._tasksets.append(_TaskSetQueue(generator, monitor, offset, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
+            with self._jobs_list_lock:
+                self._jobs.append(_Job(generator, monitor, offset, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
             self.logger.info("a new job was added, offset was {}".format(offset))
             self._refresh_machines()
         except StopIteration:
@@ -259,27 +192,39 @@ class Distributor:
             m[1].set()
         self.logger.info("\nAll machines shuting down.\n====############=====")
 
-    def _clean_machines(self):
-        #cleans up machines which are not running
-        self.logger.info("cleaner: started, will clean up not running machines")
-        dead = []
-        while self._machines:
-            time.sleep(10)
-            self.logger.debug("cleaner: id_to_machine: {}".format(self.id_to_machine))
-            self.logger.debug("cleaner: machinestates: {}".format(self.machinestate))
-            self.logger.info("cleaner: looking for inactive machines")
-            for m in self._machines:
-                if m[1].is_set():
-                    self.logger.debug("cleaner: found inactive machine with id -{}-".format(m[2]))
-                    dead.append(m)
-            for d in dead:
-                self.machinestate[d[2]]=0
-                self.logger.debug("cleaner: removing machine with id -{}-".format(d[2]))
-                self._machines.remove(d)
-            dead = []
-        self.logger.info("cleaner: stopped because there are no machines left")
 
-class _TaskSetQueue():
+    def shut_down_all_machines(self):
+        #soft kill, callable from outside
+        self.logger.info("\n====############=====\nShutting down machines")
+        for m in self._machines:
+            m[0].close()
+        self.logger.info("\nAll machines shuting down after processing the current set.\n====############=====")
+
+
+    def _clean_machines(self):
+        self.logger.info("cleaner: started, will clean up _machines list and machine states")
+        cont = 2
+        while True:
+            time.sleep(5)
+            if self.id_to_machine or cont > 0:
+                if not self.id_to_machine:
+                    cont -= 1
+                else:
+                    cont = 2
+                self.logger.debug("cleaner: id_to_machine: {}".format(self.id_to_machine))
+                self.logger.info("cleaner: looking for inactive machines")
+                for m in self._machines:
+                    if m[1].is_set():
+                        self.logger.debug("cleaner: removing inactive machine with id -{}-".format(m[2]))
+                        self.machinestate[m[2]]=0
+                        self._machines.remove(m)
+                self.logger.debug("cleaner: machinestates after cleaning: {}".format(self.machinestate))
+                self.logger.debug("cleaner: _machines after cleaning: {}".format(self._machines))
+                self.logger.info("cleaner: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._jobs]))
+
+
+
+class _Job():
     """Takes an iterator/generator and makes it thread-safe by
     serializing call to the `next` method of given iterator/generator.
     """
@@ -336,7 +281,7 @@ class _TaskSetQueue():
         with self.lock:
             self.in_progress.remove(taskset)
             self.processed += 1
-            self.logger.info("{} taskset variant(s) processed".format(self.processed))
+            self.logger.info("####### {} taskset variant(s) processed #######".format(self.processed))
         
     def put(self, taskset):
         """Call this method, if a task-set processing is canceled.

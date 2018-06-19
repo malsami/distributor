@@ -56,7 +56,7 @@ def kill_qemu(logger, machine_id):
 # asyncron, which means that every call is blocking.
 class GenodeSession(AbstractSession):
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, logging_level):
         self.script_dir = os.path.dirname(os.path.realpath(__file__))
         self._socket = socket.create_connection((host, port))
         self.host = host
@@ -67,7 +67,7 @@ class GenodeSession(AbstractSession):
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
-            self.logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging_level)
         self.logger.info("=====================================================")
         self.logger.info("host {}: Connection established".format(self.session_id))
         self.logger.info("=====================================================")
@@ -365,8 +365,8 @@ class GenodeSession(AbstractSession):
 
 class PingSession(GenodeSession):
     PING_TIMEOUT=4
-    def __init__(self, host, port):
-        GenodeSession.__init__(self, host, port)
+    def __init__(self, host, port, logging_level):
+        GenodeSession.__init__(self, host, port, logging_level)
     # overwrite the availiblity check and replace it with a ping.
     def is_available(host):
         received_packages = re.compile(r"(\d) received")
@@ -381,13 +381,12 @@ class PingSession(GenodeSession):
 
             
 class QemuSession(PingSession):
-    #LOG='/tmp/taskgen_qemusession_ip_kill.log'
     PingSession.PING_TIMEOUT=1 # speed up, localhost is fast
 
     
-    def __init__(self, host, port):
+    def __init__(self, host, port, logging_level):
         # open connection
-        PingSession.__init__(self, host, port)
+        PingSession.__init__(self, host, port, logging_level)
 
         #self._socket.settimeout(10.0) # wait 1 seconds for responses (localhost is fast)
         #self.logger = logging.getLogger("QemuSession")

@@ -21,7 +21,7 @@ class Machine(threading.Thread):
 
 	# This class is only instatiated in `_refresh_starter`.
 
-	def __init__(self, machine_id, lock, tasksets, port, session_class, bridge, m_running, id_to_machine):
+	def __init__(self, machine_id, lock, tasksets, port, session_class, bridge, m_running, id_to_machine, logging_level):
 		super(Machine, self).__init__()
 		self.machine_id = machine_id
 		self._host = ""
@@ -38,6 +38,7 @@ class Machine(threading.Thread):
 		#self._session_lock = threading.Lock()
 
 		self.script_dir = os.path.dirname(os.path.realpath(__file__))
+		self.logging_level = logging_level
 		self.logger = logging.getLogger("Machine({})".format(self.machine_id))
 		if not len(self.logger.handlers):
 			self.hdlr = logging.FileHandler('{}/log/machine{}.log'.format(self.script_dir, self.machine_id))
@@ -45,11 +46,13 @@ class Machine(threading.Thread):
 			self.hdlr.setFormatter(self.formatter)
 			
 			self.logger.addHandler(self.hdlr)
-			self.logger.setLevel(logging.DEBUG)
+			self.logger.setLevel(self.logging_level)
 
 		self._taskset_list_lock = lock #threading.Lock()
 		self._taskset_list = tasksets
 		self._current_set = None
+		self._current_set_tries = 1
+		self._current_set_max_tries = 10
 		self._set_running = False
 		self._current_generator = None
 
@@ -76,7 +79,7 @@ class Machine(threading.Thread):
 						self.finished = self._session.finished()
 						self.logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.machine_id, self.started, self.stopped, self.finished))
 						if not self.started:# if not started we want to call session.start()
-							self.logger.info("id {}: have a set and about to start".format(self.machine_id))
+							self.logger.debug("id {}: have a set and about to start".format(self.machine_id))
 							try:
 								self._session.start(self._current_set)#, *self._session_params)#this needs to be added if session_params should be used again
 								self.started = True
@@ -91,7 +94,7 @@ class Machine(threading.Thread):
 								#should not happen because we check the type in distributor.add_job()
 						
 						elif not self.stopped and self.finished:
-							self.logger.info("id {}: have a finished set and about to stop".format(self.machine_id))
+							self.logger.debug("id {}: have a finished set and about to stop".format(self.machine_id))
 							self._session.stop()
 							self.started = False
 							self.stopped = True
@@ -101,7 +104,7 @@ class Machine(threading.Thread):
 							# about the processed task-set. This is important, because
 							# TaskSetQueue keeps track of currently processed task-sets.
 							self._current_generator.done(self._current_set)
-							self.logger.debug("id {}: Taskset variant is successfully processed.".format(self.machine_id))
+							self.logger.debug("id {}: Taskset variant was successfully processed.".format(self.machine_id))
 							self._current_set = None
 							self._session.removeSet()
 							#time.sleep(10)
@@ -116,9 +119,15 @@ class Machine(threading.Thread):
 								self.logger.info("id {}: Qemu instance of {} was killed.".format(self.machine_id, self._host))
 								for task in self._current_set:
 									task.jobs = []
-								self._current_generator.put(self._current_set)
-								self._current_set = None
-								self.logger.debug("id {}: Taskset variant is reset and put back".format(self.machine_id))
+								if self._current_set_tries >= self._current_set_max_tries:
+									if self._monitor is not None:
+										self._monitor.__taskset_bad__(self._current_set, self._current_set_tries)
+									self._current_set_tries = 1
+									self._current_set = None
+									self.logger.debug("id {}: Taskset variant is reset and put back".format(self.machine_id))
+								else:
+									self._current_set_tries += 1
+									self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
 								self._session.close()
 								self.started = False
 								self.stopped = True
@@ -159,9 +168,15 @@ class Machine(threading.Thread):
 						# is reset by clearing the jobs attribute of each task.
 						for task in self._current_set:
 							task.jobs = []
-						self._current_generator.put(self._current_set)
-						self._current_set = None
-						self.logger.debug("id {}: Taskset variant is reset and dput back".format(self.machine_id))
+						if self._current_set_tries >= self._current_set_max_tries:
+							if self._monitor is not None:
+								self._monitor.__taskset_bad__(self._current_set, self._current_set_tries)
+							self._current_set_tries = 1
+							self._current_set = None
+							self.logger.debug("id {}: Taskset variant is reset and put back".format(self.machine_id))
+						else:
+							self._current_set_tries += 1
+							self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
 						# notify monitor about the unprocessed task-set
 						# if self._monitor is not None:
 						# 	self._monitor.__taskset_stop__(self._current_set)#TODO monitor should maybe also provide a method for an abort due to an error
@@ -193,6 +208,7 @@ class Machine(threading.Thread):
 			for task in self._current_set:
 				task.jobs = []
 			self._current_generator.put(self._current_set)
+			self._current_set_tries = 1
 			self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.machine_id))
 			# notify monitor about the unprocessed task-set
 			if self._monitor is not None:
@@ -205,8 +221,6 @@ class Machine(threading.Thread):
 			self._session_died = True
 		
 		self._clean_id()
-		# with open(self._kill_log, "a") as log:
-		# 	log.write(self._host + "\n")
 		self.logger.info("id {}: Qemu instance of {} was killed.".format(self.machine_id, self._host))
 		del self.id_to_machine[self.machine_id]
 		self.logger.info("id {}: Machine with host  {} is closed.".format(self.machine_id, self._host))
@@ -251,7 +265,7 @@ class Machine(threading.Thread):
 	def _revive_session(self):
 		###Connect to existing host
 		try:
-			connection = self._session_class(self._host, self._port)
+			connection = self._session_class(self._host, self._port, self.logging_level)
 			self.logger.info("id {}: _revive_session: Machine {} connected to {}".format(self.machine_id, self.machine_id, self._host))
 			self._session_died = False
 			self._session = connection
