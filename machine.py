@@ -109,7 +109,7 @@ class Machine(threading.Thread):
 							self._session.removeSet()
 							#time.sleep(10)
 						else:#the taskset is not finished
-							if self.t > 24:
+							if self.t > 40:
 								# self.logger.critical("id {}:run() no communication for 40s, will check with clear.".format(self.machine_id))
 								# self._session.clear()
 								# self.logger.critical("id {}:run() but clear worked...".format(self.machine_id))
