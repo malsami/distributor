@@ -255,7 +255,8 @@ class Machine(threading.Thread):
 		pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(self.machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
 		c = 0
 		for p in pids:
-			Popen(['screen', '-X','-S', str(p,'utf-8'), 'kill'])
+			pid = str(p,'utf-8').split('.')[0]
+			Popen(['kill','-9' ,pid], stdout=PIPE, stderr=PIPE)
 			c+=1
 		Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(self.machine_id)], stdout=PIPE, stderr=PIPE)
 		Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
@@ -271,15 +272,19 @@ class Machine(threading.Thread):
 			self._session = connection
 			return True #successful startup
 		except socket.error as e:
-			if e.errno == errno.ECONNREFUSED:
-				#connection refused. there might be other computers in the
-				#network. that's ok and the error is handled silently.
-				self.logger.debug("id {}: {}".format(self.machine_id,e))
-			else:
-				#otherwise a bigger problem occured
-				kill_qemu(self.logger, self.machine_id)
-				self._host = ''
-				self.logger.critical("id {}: qemu was killed in _revive_session, error: {}".format(self.machine_id,e))
+			#if e.errno == errno.ECONNREFUSED:
+			#	#connection refused. there might be other computers in the
+			#	#network. that's ok and the error is handled silently.
+			#	self.logger.debug("id {}: {}".format(self.machine_id,e))
+			#else:
+			#	#otherwise a bigger problem occured
+			#	kill_qemu(self.logger, self.machine_id)
+			#	self._host = ''
+			#	self.logger.critical("id {}: qemu was killed in _revive_session, error: {}".format(self.machine_id,e))
+			kill_qemu(self.logger, self.machine_id)
+			self._host = ''
+			self.logger.critical("id {}: qemu was killed in _revive_session, error: {}".format(self.machine_id,e))
+			
 			self._session_died = True
 			self._session = None
 			self.logger.debug("id {}:_revive_session: connection was not possible".format(self.machine_id))
