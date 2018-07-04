@@ -50,8 +50,8 @@ def kill_qemu(logger, machine_id):
     pids = Popen(['{}/../grep_screen.sh'.format(os.path.dirname(os.path.realpath(__file__))), str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
     c = 0
     for p in pids:
-        pid = str(p,'utf-8').split('.')[0]
-        Popen(['kill','-9',pid], stdout=PIPE, stderr=PIPE)
+        pid = str(p,'utf-8')
+        Popen(['kill', '-9', pid], stdout=PIPE, stderr=PIPE)
         c+=1
     Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(machine_id)], stdout=PIPE, stderr=PIPE)
     Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
