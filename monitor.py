@@ -32,3 +32,7 @@ class AbstractMonitor(metaclass=ABCMeta):
         """A task-set processing is canceled due to an error or is stopped regularly."""
         pass
 
+    @abstractmethod
+    def __taskset_bad__(self, taskset, n):
+        """After n tries the taskset could not be executedcorrectly"""
+        pass

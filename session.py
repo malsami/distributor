@@ -62,10 +62,10 @@ class AbstractSession(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def is_running(self, taskset):
+    def finished(self, taskset):
         """Determinate if task-set is still executing
 
-        :return: `True`, if task-set is still running, False otherwise.
+        :return: `True`, if task-set is finished, False otherwise.
         :rtype: bool
         """
         pass
