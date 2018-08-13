@@ -7,10 +7,10 @@ import xmltodict
 import dicttoxml
 import time
 import xml.dom.minidom # for xml parsing in the logfiles
-from session import AbstractSession
 from subprocess import Popen, PIPE
 import sys
 sys.path.append('../') # so we can find taskgen
+from distributor_service.session import AbstractSession
 from taskgen.taskset import TaskSet
 from taskgen.task import Job
 

@@ -5,12 +5,14 @@ to sending tasksets while listening for events from genode.
 
 """
 import os
+import sys
+sys.path.append('../')
 import threading
 import errno
 import time
 from subprocess import Popen, PIPE
 
-from sessions.genode import * 
+from distributor_service.sessions.genode import * 
 
 class Machine(threading.Thread):
 	# Starts up a Qemu instance with Genode.
@@ -26,7 +28,7 @@ class Machine(threading.Thread):
 		self.machine_id = machine_id
 		self._host = ""
 		self._port = port
-		self.start_up_delay = 20
+		self.start_up_delay = 15
 
 		self.inactive = m_running #threading.Event() |used to shut instance down
 		self._session_class = session_class
@@ -49,7 +51,7 @@ class Machine(threading.Thread):
 		self._taskset_list = tasksets
 		self._current_set = None
 		self._current_set_tries = 1
-		self._current_set_max_tries = 5
+		self._current_set_max_tries = 1
 		self._set_running = False
 		self._current_generator = None
 

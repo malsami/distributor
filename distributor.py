@@ -13,13 +13,13 @@ import importlib
 import copy
 from queue import Empty, Queue, Full
 from subprocess import Popen, PIPE
-from monitor import AbstractMonitor
-from session import AbstractSession
-from machine import Machine
 
 import os
 import sys
 sys.path.append('../')
+from distributor_service.monitor import AbstractMonitor
+from distributor_service.session import AbstractSession
+from distributor_service.machine import Machine
 from taskgen.taskset import TaskSet
 
 
@@ -44,7 +44,7 @@ class Distributor:
 
         self._bridge = bridge
         self._port = port
-        self._session_class = getattr(importlib.import_module("sessions.genode"), session_type)
+        self._session_class = getattr(importlib.import_module("distributor_service.sessions.genode"), session_type)
 
         self._jobs_list_lock = threading.Lock()
         self._jobs = []
@@ -55,7 +55,7 @@ class Distributor:
             index=i+1
             self.machinestate[index]=0
         
-        self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,))
+        self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,),daemon=True)
                     
         self.logger.info("=====================================================")
         self.logger.info("Distributor started")
@@ -118,6 +118,7 @@ class Distributor:
                         if new_id != -1:
                             m_running = threading.Event()
                             machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
+                            machine.daemon = True
                             machine.start()
                             self.id_to_machine[new_id] = machine
                             self._machines.append((machine, m_running, new_id))
@@ -139,6 +140,7 @@ class Distributor:
                             if new_id != -1:
                                 m_running = threading.Event()
                                 machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
+                                machine.daemon = True
                                 machine.start()
                                 self.id_to_machine[new_id] = machine
                                 self._machines.append((machine,m_running, new_id))
