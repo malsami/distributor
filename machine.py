@@ -28,7 +28,7 @@ class Machine(threading.Thread):
 		self.machine_id = machine_id
 		self._host = ""
 		self._port = port
-		self.start_up_delay = 15
+		self.start_up_delay = 20
 
 		self.inactive = m_running #threading.Event() |used to shut instance down
 		self._session_class = session_class
@@ -36,11 +36,11 @@ class Machine(threading.Thread):
 		self._session = None
 		self._session_params = None
 		
-		self.script_dir = os.path.dirname(os.path.realpath(__file__))
+		#self.script_dir = os.path.dirname(os.path.realpath(__file__))
 		self.logging_level = logging_level
 		self.logger = logging.getLogger("Machine({})".format(self.machine_id))
 		if not len(self.logger.handlers):
-			self.hdlr = logging.FileHandler('{}/log/machine{}.log'.format(self.script_dir, self.machine_id))
+			self.hdlr = logging.FileHandler('../distributor_service/log/machine{}.log'.format(self.machine_id))
 			self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 			self.hdlr.setFormatter(self.formatter)
 			
@@ -237,7 +237,7 @@ class Machine(threading.Thread):
 		self._clean_id()
 		time.sleep(2)
 		#Spawn new qemu host and return the id if the machine was reachable, otherwise -1
-		ret_id = int(Popen(["{}/qemu.sh".format(self.script_dir), str(self.machine_id), str(self.start_up_delay)], stdout=PIPE, stderr=PIPE).communicate()[0])
+		ret_id = int(Popen(["../distributor_service/qemu.sh", str(self.machine_id), str(self.start_up_delay)], stdout=PIPE, stderr=PIPE).communicate()[0])
 		self.logger.debug("id {}:spawn_host(): {}".format(self.machine_id, ret_id))
 		self.logger.debug("id {}:spawn_host(): ___________________________________".format(self.machine_id))
 		if self.machine_id != ret_id:
@@ -252,7 +252,7 @@ class Machine(threading.Thread):
 
 	
 	def _clean_id(self):
-		pids = Popen(['{}/grep_screen.sh'.format(self.script_dir), str(self.machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+		pids = Popen(['../distributor_service/grep_screen.sh', str(self.machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
 		c = 0
 		for p in pids:
 			pid = str(p,'utf-8')

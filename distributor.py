@@ -28,12 +28,12 @@ class Distributor:
     
     def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001):
         self.max_allowed_machines = max_allowed #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf it can be lower but not higher
-        self.script_dir = os.path.dirname(os.path.realpath(__file__))
+        #self.script_dir = os.path.dirname(os.path.realpath(__file__))
         
         self.logger = logging.getLogger('Distributor')
         self.logging_level = logging_level
         if not len(self.logger.handlers):
-            self.hdlr = logging.FileHandler('{}/log/distributor.log'.format(self.script_dir))
+            self.hdlr = logging.FileHandler('../distributor_service/log/distributor.log')
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)

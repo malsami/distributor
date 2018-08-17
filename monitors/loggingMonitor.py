@@ -1,14 +1,14 @@
 
 import sys
 sys.path.append('../')
-from monitor import AbstractMonitor
+from distributor_service.monitor import AbstractMonitor
 import logging
 
 class LoggingMonitor(AbstractMonitor):
     
     def __init__(self):
         self.logger = logging.getLogger('OutputMonitorLogger')
-        self.hdlr = logging.FileHandler('./log/monitor.log')
+        self.hdlr = logging.FileHandler('../distributor_service/log/monitor.log')
         self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         self.hdlr.setFormatter(self.formatter)
         self.logger.addHandler(self.hdlr)

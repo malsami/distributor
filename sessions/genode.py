@@ -47,7 +47,7 @@ def kill_qemu(logger, machine_id):
     logger.error("host {}:_kill_qemu(): Qemu instance of 10.200.45.{} is killed.".format(machine_id, machine_id))
     #Popen(['screen', '-X', '-S', 'qemu'+str(machine_id), 'kill'], stdout = PIPE, stderr = PIPE)
     #Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(machine_id)], stdout=PIPE, stderr=PIPE)
-    pids = Popen(['{}/../grep_screen.sh'.format(os.path.dirname(os.path.realpath(__file__))), str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+    pids = Popen(['../distributor_service/grep_screen.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
     c = 0
     for p in pids:
         pid = str(p,'utf-8')
@@ -65,13 +65,13 @@ def kill_qemu(logger, machine_id):
 class GenodeSession(AbstractSession):
 
     def __init__(self, host, port, logging_level):
-        self.script_dir = os.path.dirname(os.path.realpath(__file__))
+        #self.script_dir = os.path.dirname(os.path.realpath(__file__))
         self._socket = socket.create_connection((host, port))
         self.host = host
         self.session_id = int(self.host.split('.')[-1])
         self.logger = logging.getLogger("GenodeSession({})".format(host))
         if not len(self.logger.handlers):
-            self.hdlr = logging.FileHandler('{}/../log/session{}.log'.format(self.script_dir, self.session_id))
+            self.hdlr = logging.FileHandler('../distributor_service/log/session{}.log'.format(self.session_id))
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
@@ -349,7 +349,7 @@ class GenodeSession(AbstractSession):
                 self.logger.critical('host {}:_send_bins(): Invalid answer received, aborting: {}'.format(self.session_id, msg))
                 break
 
-            path = "{}/../../taskgen/bin/{}".format(self.script_dir, name)
+            path = "../taskgen/bin/{}".format(name)
             file = open(path, 'rb').read()
             size = os.stat(path).st_size
             self.logger.debug('host {}:_send_bins(): Sending {} of size {}.'.format(self.session_id, name, size))
