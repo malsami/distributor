@@ -179,10 +179,7 @@ class Machine(threading.Thread):
 		del self.id_to_machine[self.machine_id]
 		self.logger.info("id {}: Machine with host  {} is closed.".format(self.machine_id, self.host))
 	
-
-	
-
-
+  
 	def close(self):
 		self._continue = False
 
