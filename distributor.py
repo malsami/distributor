@@ -26,10 +26,8 @@ from taskgen.taskset import TaskSet
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
     
-    def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001):
+    def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001, startup_delay=20, set_tries=1):
         self.max_allowed_machines = max_allowed #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf it can be lower but not higher
-        #self.script_dir = os.path.dirname(os.path.realpath(__file__))
-        
         self.logger = logging.getLogger('Distributor')
         self.logging_level = logging_level
         if not len(self.logger.handlers):
@@ -44,6 +42,7 @@ class Distributor:
 
         self._bridge = bridge
         self._port = port
+        self._set_tries = set_tries
         self._session_class = getattr(importlib.import_module("distributor_service.sessions.genode"), session_type)
 
         self._jobs_list_lock = threading.Lock()
@@ -51,12 +50,9 @@ class Distributor:
         
         self.id_to_machine={}
         self.machinestate={}
-        for i in range(self.max_allowed_machines):
-            index=i+1
-            self.machinestate[index]=0
         
         self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,),daemon=True)
-                    
+        self.delay = startup_delay
         self.logger.info("=====================================================")
         self.logger.info("Distributor started")
         self.logger.info("=====================================================")
@@ -102,59 +98,49 @@ class Distributor:
         with self._jobs_list_lock:
             if self._jobs:
                 working = True
-            
+                
             if working:
                 if not self._machines:
-                    for c in range(0, self._max_machine):
-                        new_id = -1
-                        found = False
-                        for k, v in self.machinestate.items():
-                            if not found:
-                                if v == 0:
-                                    found = True
-                                    new_id = k
-                                    self.machinestate[k] = 1
-                                    break
-                        if new_id != -1:
-                            m_running = threading.Event()
-                            machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
-                            machine.daemon = True
-                            machine.start()
-                            self.id_to_machine[new_id] = machine
-                            self._machines.append((machine, m_running, new_id))
+                    for c in range(self._max_machine):
+                        self.spawn_machine()
                     self.logger.info("started {} machines".format(len(self._machines)))
-                
                 else:
                     l = self._max_machine - len(self._machines)
                     if l > 0:
-                        for c in range(0,l):
-                            new_id = -1
-                            found = False
-                            for k, v in self.machinestate.items():
-                                if not found:
-                                    if v == 0:
-                                        found = True
-                                        new_id = k
-                                        self.machinestate[k] = 1
-                                        break
-                            if new_id != -1:
-                                m_running = threading.Event()
-                                machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, self._bridge, m_running, self.id_to_machine, self.logging_level)
-                                machine.daemon = True
-                                machine.start()
-                                self.id_to_machine[new_id] = machine
-                                self._machines.append((machine,m_running, new_id))
+                        for c in range(l):
+                            self.spawn_machine()
                         self.logger.info("started {} additional machines".format(abs(l)))
                     elif l < 0:
-                        for k in range(0,abs(l)):
-                            triple = self._machines.pop()
-                            machine=triple[0]
+                        for k in range(abs(l)):
+                            machine,event,machine_id = self._machines[-(k+1)]#.pop()
+                            #machine=triple[0]
                             machine.close()
-                            self.machinestate[triple[2]]=0
+                            self.machinestate[machine_id] = 0 #triple[2]]=0
                         self.logger.info("closed {} machines".format(abs(l)))
             else:
                 self.logger.debug("no machines currently running")
 
+    def spawn_machine(self):
+        new_id = self.get_new_id()
+        self.logger.debug('new_id: {}'.format(new_id))
+        if new_id != -1:
+            inactive = threading.Event()
+            machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, inactive, self.id_to_machine, self.logging_level, self.delay, self._set_tries)
+            machine.daemon = True
+            machine.start()
+            self.machinestate[new_id] = 1
+            self.id_to_machine[new_id] = machine
+            self._machines.append((machine,inactive, new_id))
+
+
+    def get_new_id(self):
+        for new_id in range(1, self._max_machine+1):
+            try:
+                self.id_to_machine[new_id]
+            except KeyError as ke:
+                return new_id
+        return -1
+        
 
     def add_job(self, taskset, monitor = None, offset = 0, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
@@ -190,41 +176,43 @@ class Distributor:
     def kill_all_machines(self):
         #hard kill, callable from outside
         self.logger.info("\n====############=====\nKilling machines")
-        for m in self._machines:
-            m[1].set()
+        for machine, event, machine_id in self._machines:
+            event.set()
         self.logger.info("\nAll machines shuting down.\n====############=====")
 
 
     def shut_down_all_machines(self):
         #soft kill, callable from outside
         self.logger.info("\n====############=====\nShutting down machines")
-        for m in self._machines:
-            m[0].close()
+        for machine, event, machine_id in self._machines:
+            machine.close()
         self.logger.info("\nAll machines shuting down after processing the current set.\n====############=====")
 
 
     def _clean_machines(self):
-        self.logger.info("cleaner: started, will clean up _machines list and machine states")
-        cont = 2
+        # cleans up _machines list and machine states and logs values
+        stopping_log_in = 2
+        sleeptime = 5 if self.logging_level == logging.DEBUG else 10
         while True:
-            time.sleep(5)
-            if self.id_to_machine or cont > 0:
-                if not self.id_to_machine:
-                    cont -= 1
-                else:
-                    cont = 2
-                self.logger.debug("cleaner: id_to_machine: {}".format(self.id_to_machine))
-                self.logger.info("cleaner: looking for inactive machines")
-                for m in self._machines:
-                    if m[1].is_set():
-                        self.logger.debug("cleaner: removing inactive machine with id -{}-".format(m[2]))
-                        self.machinestate[m[2]]=0
-                        self._machines.remove(m)
-                self.logger.debug("cleaner: machinestates after cleaning: {}".format(self.machinestate))
-                self.logger.debug("cleaner: _machines after cleaning: {}".format(self._machines))
-                self.logger.info("cleaner: [(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._jobs]))
-
-
+            if self.id_to_machine or stopping_log_in > 0:
+                stopping_log_in = 2 if self.id_to_machine else stopping_log_in - 1
+                # self.logger.debug("looking for inactive machines")
+                for machine, event, machine_id in self._machines:
+                    if event.is_set():
+                        try:
+                            self.id_to_machine[machine_id]
+                        except KeyError as ke:
+                            self.logger.debug("cleaner: removing inactive machine with id -{}-".format(machine_id))
+                            self._machines.remove((machine,event, machine_id))
+                            del self.machinestate[machine_id]
+                self.logger.info('#######################################################')
+                self.logger.info("machinestates (1:running/0:shutting down): {}".format(self.machinestate))
+                self.logger.info("id_to_machine: {}".format([(k,'Machine_UP') for k,v in self.id_to_machine.items()]))
+                self.logger.debug("_machines after cleaning: {}".format([machine_id for _,_,machine_id in self._machines]))
+                self.logger.info("[(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._jobs]))
+                self.logger.info('#######################################################')
+                time.sleep(sleeptime)
+            
 
 class _Job():
     """Takes an iterator/generator and makes it thread-safe by
@@ -261,9 +249,6 @@ class _Job():
             
     def empty(self):
         with self.lock:
-            # in progress?
-            #if len(self.in_progress) > 0:
-            #    return False
             # in queue?
             if not self.queue.empty():
                 return False
