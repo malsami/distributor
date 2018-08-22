@@ -128,7 +128,7 @@ class Machine(threading.Thread):
 	def _get_set(self):
 		if self._continue:#check for soft shutdown
 			self.logger.debug("id {}: _get_set: continue is True".format(self.machine_id))
-			self.logger.info("id {}: getting a taskset".format(self.machine_id))
+			self.logger.info("id {}: getting a taskset...".format(self.machine_id))
 			try:
 				if not self._get_taskset():
 					self.logger.info("id {}: no more tasksets, shutting down".format(self.machine_id))
@@ -191,7 +191,7 @@ class Machine(threading.Thread):
 					self._job_list.remove(self._current_generator)
 					self.logger.debug("id {}:get_taskset: empty generator was still in taskset_list, removed it".format(self.machine_id))
 				except ValueError as e:
-					self.logger.error("id {}: get_taskset: empty generator was not in _job_list anymore, probably was removed by other machine".format(self.machine_id))	
+					self.logger.debug("id {}: get_taskset: empty generator was not in _job_list anymore, probably was removed by other machine".format(self.machine_id))	
 				finally:
 					self._current_generator  = None
 
