@@ -22,7 +22,7 @@ class Machine(threading.Thread):
 
 	# This class is only instatiated in `_refresh_starter`.
 
-	def __init__(self, machine_id, lock, tasksets, port, session_class, inactive, id_to_machine, logging_level, delay, set_tries):
+	def __init__(self, machine_id, lock, tasksets, port, session_class, inactive, id_to_machine, logging_level, delay, set_tries, timeout):
 		super(Machine, self).__init__()
 		# setting up logger
 		self.logging_level = logging_level
@@ -44,7 +44,7 @@ class Machine(threading.Thread):
 		self._continue = True
 
 		self._session_class = session_class
-		self._session = self._session_class(self.machine_id, self._port, self.logging_level, self.startup_delay)
+		self._session = self._session_class(self.machine_id, self._port, self.logging_level, self.startup_delay, timeout)
 		self._session_params = None
 		
 		self._job_list_lock = lock #threading.Lock()
@@ -60,6 +60,7 @@ class Machine(threading.Thread):
 		self.finished = False
 		
 		self.id_to_machine=id_to_machine
+		self.logger.info('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
 		self.logger.info("=====================================================")
 		self.logger.info("id {}: NEW MACHINE INIT done".format(self.machine_id))
 		self.logger.info("=====================================================")

@@ -25,8 +25,8 @@ from taskgen.taskset import TaskSet
 
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
-    
-    def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001, startup_delay=20, set_tries=1):
+
+    def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001, startup_delay=20, set_tries=1, timeout=40):
         self.max_allowed_machines = max_allowed #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf it can be lower but not higher
         self.logger = logging.getLogger('Distributor')
         self.logging_level = logging_level
@@ -43,6 +43,7 @@ class Distributor:
         self._bridge = bridge
         self._port = port
         self._set_tries = set_tries
+        self.timeout = timeout
         self._session_class = getattr(importlib.import_module("distributor_service.sessions.genode"), session_type)
 
         self._jobs_list_lock = threading.Lock()
@@ -53,6 +54,7 @@ class Distributor:
         
         self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,),daemon=True)
         self.delay = startup_delay
+        self.logger.info('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
         self.logger.info("=====================================================")
         self.logger.info("Distributor started")
         self.logger.info("=====================================================")
@@ -67,6 +69,8 @@ class Distributor:
         with self._jobs_list_lock:
             if self._jobs:
                 ret = True 
+            elif self.id_to_machine:
+                ret = True
         return ret
 
 
@@ -125,7 +129,7 @@ class Distributor:
         self.logger.debug('new_id: {}'.format(new_id))
         if new_id != -1:
             inactive = threading.Event()
-            machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, inactive, self.id_to_machine, self.logging_level, self.delay, self._set_tries)
+            machine = Machine(new_id, self._jobs_list_lock, self._jobs, self._port, self._session_class, inactive, self.id_to_machine, self.logging_level, self.delay, self._set_tries, self.timeout)
             machine.daemon = True
             machine.start()
             self.machinestate[new_id] = 1
@@ -204,7 +208,10 @@ class Distributor:
                         except KeyError as ke:
                             self.logger.debug("cleaner: removing inactive machine with id -{}-".format(machine_id))
                             self._machines.remove((machine,event, machine_id))
-                            del self.machinestate[machine_id]
+                            try:
+                                del self.machinestate[machine_id]
+                            except:
+                                pass
                 self.logger.info('#######################################################')
                 self.logger.info("machinestates (1:running/0:shutting down): {}".format(self.machinestate))
                 self.logger.info("id_to_machine: {}".format([(k,'Machine_UP') for k,v in self.id_to_machine.items()]))

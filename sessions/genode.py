@@ -64,10 +64,11 @@ def kill_qemu(logger, machine_id):
 # asyncron, which means that every call is blocking.
 class GenodeSession(AbstractSession):
 
-    def __init__(self, session_id, port, logging_level, startup_delay):
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
         self.done = [False] # used in finished
         self.startup_delay = startup_delay # used in spawn_host
         self.t = 0 # used in run of inhereting classes
+        self.timeout = timeout
         self.session_id = session_id
         self.logger = logging.getLogger("GenodeSession({})".format(self.get_host()))
         if not len(self.logger.handlers):
@@ -81,6 +82,7 @@ class GenodeSession(AbstractSession):
         self._socket = None
         self.port = port
         self.sent_bin = set()
+        self.logger.info('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
         self.logger.info("=====================================================")
         self.logger.info('Created new session')
         self.logger.info("=====================================================")
@@ -360,8 +362,8 @@ class GenodeSession(AbstractSession):
 
 class PingSession(GenodeSession):
     PING_TIMEOUT=4
-    def __init__(self, session_id, port, logging_level, startup_delay):
-        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay)
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
     # overwrite the availiblity check and replace it with a ping.
     def is_available(host):
         received_packages = re.compile(r"(\d) received")
@@ -383,8 +385,8 @@ class QemuSession(PingSession):
     PingSession.PING_TIMEOUT=1 # speed up, localhost is fast
 
     
-    def __init__(self, session_id, port, logging_level, startup_delay):
-        PingSession.__init__(self, session_id, port, logging_level, startup_delay)
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        PingSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
         
 
     def get_host(self):
@@ -413,7 +415,7 @@ class QemuSession(PingSession):
     def connect(self):
         try:
             PingSession.connect(self)
-        except socket.timeout as e:
+        except Exception as e:
             self.logger.error("session {}: an error occured during connect(): {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
             raise HOST_killed('QEMU_{} was killed'.format(self.session_id))
@@ -433,8 +435,8 @@ class QemuSession(PingSession):
             if PingSession.run(self):
                 self.t = 0
                 return True
-            elif self.t > 40:
-                self.logger.error("session {}: genode is not responding for over 40s, killing it".format(self.session_id))
+            elif self.t > self.timeout:
+                self.logger.error("session {}: genode is not responding for over {}s, killing it".format(self.session_id, self.timeout))
                 raise HOST_killed('QEMU_{} was killed'.format(self.session_id))
             else:
                 self.t += 2
