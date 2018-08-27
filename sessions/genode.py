@@ -458,6 +458,7 @@ class QemuSession(PingSession):
 
     def start_host(self, inactive, _continue):
         kill_qemu(self.logger, self.session_id)
+        self.sent_bin = set()
         time.sleep(2)
         while not inactive.is_set():
             #Spawn new qemu host and return the id if the machine was reachable, otherwise -1
