@@ -17,15 +17,3 @@ sudo ip link set dev $tap up
 
 taskset -c $(($1 * 2 - 2)),$(($1 * 2 - 1)) screen -dmS qemu$1 bash -c "qemu-system-arm -net tap,ifname=$tap,script=no,downscript=no -net nic,macaddr=$mac,model=lan9118 -nographic -smp 4  -m 1024 -M realview-pbx-a9 -kernel $image >> $cur/../distributor_service/log/$1genode_dump.txt"
 
-#giving genode time to set things up
-sleep $2
-
- 
-
-ping -c 1 $ip > /dev/null
-if [ $? -eq 0 ]
-then
-	printf "%s" $1
-else
-	printf "%s" -1
-fi

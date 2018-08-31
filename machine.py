@@ -107,7 +107,7 @@ class Machine(threading.Thread):
 
 	def _active(self):
 		if self._session.run():
-			self.logger.info("id {}: received a profile".format(self.machine_id))
+			self.logger.debug("id {}: received a profile".format(self.machine_id))
 			if self._monitor is not None and self._current_set is not None:
 				self._monitor.__taskset_event__(self._current_set)
 		else:

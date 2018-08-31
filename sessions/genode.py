@@ -42,9 +42,18 @@ class MagicNumber:
     #Initiate task scheduling optimization.
     OPTIMIZE = 0x6F7074
 
+    #checking if Genode is reachable
+    AVAILABLE = 0xAAAAA
+
+
+def kill_panda(logger, machine_id):
+    logger.info("session {}:kill_panda(): Try to kill Panda on 10.200.33.{}.".format(machine_id, machine_id))
+    Popen(['x-terminal-emulator','-e','../distributor_service/sessions/panda.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+    time.sleep(10)
+
 
 def kill_qemu(logger, machine_id):
-    logger.info("session {}:_kill_qemu(): Try to kill Qemu instance of 10.200.45.{}.".format(machine_id, machine_id))
+    logger.info("session {}:kill_qemu(): Try to kill Qemu instance of 10.200.45.{}.".format(machine_id, machine_id))
     #Popen(['screen', '-X', '-S', 'qemu'+str(machine_id), 'kill'], stdout = PIPE, stderr = PIPE)
     #Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(machine_id)], stdout=PIPE, stderr=PIPE)
     pids = Popen(['../distributor_service/grep_screen.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
@@ -65,6 +74,7 @@ def kill_qemu(logger, machine_id):
 class GenodeSession(AbstractSession):
 
     def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        socket.setdefaulttimeout(10)
         self.done = [False] # used in finished
         self.startup_delay = startup_delay # used in spawn_host
         self.t = 0 # used in run of inhereting classes
@@ -273,7 +283,7 @@ class GenodeSession(AbstractSession):
         self._send(len(xml),xml)
 
 
-    def _send(self,size, data):
+    def _send(self, size, data):
         self.logger.debug('session {}:_send():  have {} to send.'.format(self.session_id, size))
         sent = 0
         while sent < size:
@@ -335,7 +345,6 @@ class GenodeSession(AbstractSession):
         
         meta = struct.pack('II', MagicNumber.SEND_BINARIES, len(binaries))
         self._send(len(meta),meta)
-
         for name in binaries:
             # Wait for 'go' message.
             msg = int.from_bytes(self._socket.recv(4), 'little')
@@ -357,36 +366,42 @@ class GenodeSession(AbstractSession):
         self.logger.debug('session {}:_start():  Starting tasks on server.'.format(self.session_id))
         meta = struct.pack('I', MagicNumber.START)
         self._send(len(meta),meta)
-        
+    
 
+    def _available(self):
+        try:
+            self.connect()
+            meta = struct.pack('I', MagicNumber.AVAILABLE)
+            self._send(len(meta),meta)
+            # Wait for answer
+            msg = int.from_bytes(self._socket.recv(4), 'little')
+            self.logger.debug('session {}: _available: got answer {}'.format(self.session_id, msg))
+            if msg != MagicNumber.AVAILABLE:
+                self.logger.critical('session {}: _available: Invalid answer received, aborting: {}'.format(self.session_id, msg))
+                self._close
+                return False
 
-class PingSession(GenodeSession):
-    PING_TIMEOUT=4
-    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
-        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
-    # overwrite the availiblity check and replace it with a ping.
-    def is_available(host):
-        received_packages = re.compile(r"(\d) received")
-        ping_out = os.popen("ping -q -W {} -c2 {}".format(PingSession.PING_TIMEOUT, host),"r")
-        while True:
-            line = ping_out.readline()
-            if not line:
-                break
-            n_received = re.findall(received_packages,line)
-            if n_received:
-                return int(n_received[0]) > 0
+            self.logger.info("session {}:_available: Genode is available".format(self.session_id))
+            self._close()
+            return True
+
+        except (socket.timeout,HOST_killed) as e:
+            self.logger.debug('session {}: _available: {}'.format(self.session_id, e))
+            self._close()
+            return False
+
 
         
 class HOST_killed(Exception):
     pass
 
 
-class QemuSession(PingSession):
-    PingSession.PING_TIMEOUT=1 # speed up, localhost is fast
 
+class QemuSession(GenodeSession):
+    
     
     def __init__(self, session_id, port, logging_level, startup_delay, timeout):
-        PingSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
+        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
         
 
     def get_host(self):
@@ -395,7 +410,7 @@ class QemuSession(PingSession):
     
     def start(self, taskset, admctrl=None):
         try:
-            PingSession.start(self, taskset, admctrl)
+            GenodeSession.start(self, taskset, admctrl)
             self.t = 0
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during start: {}".format(self.session_id, e))
@@ -405,7 +420,7 @@ class QemuSession(PingSession):
 
     def stop(self):
         try:
-            PingSession.stop(self)
+            GenodeSession.stop(self)
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during stop: {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
@@ -414,7 +429,7 @@ class QemuSession(PingSession):
 
     def connect(self):
         try:
-            PingSession.connect(self)
+            GenodeSession.connect(self)
         except Exception as e:
             self.logger.error("session {}: an error occured during connect(): {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
@@ -423,7 +438,7 @@ class QemuSession(PingSession):
 
     def close(self):
         try:
-            PingSession.close(self)
+            GenodeSession.close(self)
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during close: {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
@@ -432,7 +447,7 @@ class QemuSession(PingSession):
 
     def run(self):
         try:
-            if PingSession.run(self):
+            if GenodeSession.run(self):
                 self.t = 0
                 return True
             elif self.t > self.timeout:
@@ -449,7 +464,7 @@ class QemuSession(PingSession):
 
     def clear(self):
         try:
-            PingSession._clear(self)
+            GenodeSession._clear(self)
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during clear: {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
@@ -457,24 +472,19 @@ class QemuSession(PingSession):
 
 
     def start_host(self, inactive, _continue):
-        kill_qemu(self.logger, self.session_id)
         self.sent_bin = set()
-        time.sleep(2)
         while not inactive.is_set():
             #Spawn new qemu host and return the id if the machine was reachable, otherwise -1
-            ret_id = int(Popen(["../distributor_service/qemu.sh", str(self.session_id), str(self.startup_delay)], stdout=PIPE, stderr=PIPE).communicate()[0])
-            #logger.debug("id {}:spawn_host(): {}".format(qemu_id, ret_id))
-            self.logger.debug("session {}:spawn_host(): ___________________________________".format(self.session_id))
-            if self.session_id != ret_id:
-                self.logger.info("session {}:spawn_host(): something went wrong while spawning a qemu: {}".format(self.session_id, ret_id))
-                #so the qemu is killed instantly
-                kill_qemu(self.logger, self.session_id)
+            Popen(["../distributor_service/qemu.sh", str(self.session_id), str(self.startup_delay)], stdout=PIPE, stderr=PIPE)
+            time.sleep(self.startup_delay)
+            self.logger.debug("session {}:start_host: ___________________________________".format(self.session_id))
+            if GenodeSession._available(self):
+                return '10.200.45.{}'.format(self.session_id)
+            else:
+                self.clean_host(self.logger, self.session_id)
                 if not _continue:
                     inactive.set()
                     return ''
-            else:
-                self.logger.info("session {}:spawn_host(): successfully spawned qemu {}".format(self.session_id, ret_id))
-                return '10.200.45.{}'.format(self.session_id)
 
 
     @staticmethod
@@ -482,3 +492,97 @@ class QemuSession(PingSession):
         logger.info('id {}: cleaning host before shutdown'.format(qemu_id))
         kill_qemu(logger, qemu_id)
 
+
+
+class PandaSession(GenodeSession):
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
+        
+
+    def get_host(self):
+        return '10.200.33.{}'.format(self.session_id)
+
+
+    def start(self, taskset, admctrl=None):
+        try:
+            GenodeSession.start(self, taskset, admctrl)
+            self.t = 0
+        except socket.timeout as e:
+            self.logger.error("session {}: an error occured during start: {}".format(self.session_id, e))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def stop(self):
+        try:
+            GenodeSession.stop(self)
+        except socket.timeout as e:
+            self.logger.error("session {}: an error occured during stop: {}".format(self.session_id, e))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def connect(self):
+        try:
+            GenodeSession.connect(self)
+        except Exception as e:
+            self.logger.error("session {}: an error occured during connect(): {}".format(self.session_id, e))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def close(self):
+        try:
+            GenodeSession.close(self)
+        except socket.timeout as e:
+            self.logger.error("session {}: an error occured during close: {}".format(self.session_id, e))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def run(self):
+        try:
+            if GenodeSession.run(self):
+                self.t = 0
+                return True
+            elif self.t > self.timeout:
+                self.logger.error("session {}: genode is not responding for over {}s, killing it".format(self.session_id, self.timeout))
+                raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+            else:
+                self.t += 2
+                return False
+        except:
+            self.logger.error("session {}: an error occured during run".format(self.session_id))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def clear(self):
+        try:
+            GenodeSession._clear(self)
+        except socket.timeout as e:
+            self.logger.error("session {}: an error occured during clear: {}".format(self.session_id, e))
+            kill_panda(self.logger, self.session_id)
+            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+
+
+    def start_host(self, inactive, _continue):
+        self.sent_bin = set()
+        time.sleep(self.startup_delay)
+        while not inactive.is_set():
+            #checking if panda is running genode
+            self.logger.debug("session {}:start_host: ___________________________________".format(self.session_id))
+            if GenodeSession._available(self):
+                return '10.200.33.{}'.format(self.session_id)
+            else:
+                self.clean_host(self.logger, self.session_id)
+                if not _continue:
+                    inactive.set()
+                    return ''
+
+
+
+    @staticmethod
+    def clean_host(logger, qemu_id):
+        logger.info('id {}: cleaning host before shutdown'.format(qemu_id))
+        #kill_panda(logger, qemu_id)
