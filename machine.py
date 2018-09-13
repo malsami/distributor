@@ -102,6 +102,8 @@ class Machine(threading.Thread):
 			self._current_set = None
 		else:
 			self._current_set_tries += 1
+			for task in self._current_set:
+				task.jobs = []
 			self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
 
 
@@ -153,8 +155,6 @@ class Machine(threading.Thread):
 				except HOST_killed as hk:
 					self.logger.info("id {}: Host instance of {} was killed.\n{}".format(self.machine_id, self.host, hk))
 					self.host = ''
-					for task in self._current_set:
-						task.jobs = []
 					self._check_tries()
 					self._session.close()
 					self.started = False
@@ -169,13 +169,15 @@ class Machine(threading.Thread):
 		if self._current_set is not None:
 			# the shutdown occured during the task-set processing. The task-set
 			# pushed back to the task-set queue.
+			for task in self._current_set:
+				task.jobs = []
 			self._current_generator.put(self._current_set)
 			with self._job_list_lock:
 				if self._current_generator not in self._job_list:
 					self._job_list.insert(0, self._current_generator)
 			self.logger.debug("id {}: Taskset variant is pushed back to queue due to an external shutdown".format(self.machine_id))
 			
-		self._session.close()
+		# self._session.close()
 		self._session_class.clean_host(self.logger, self.machine_id)
 		del self.id_to_machine[self.machine_id]
 		self.logger.info("id {}: Machine with host  {} is closed.".format(self.machine_id, self.host))

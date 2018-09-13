@@ -53,8 +53,8 @@ class MagicNumber:
 
 def kill_panda(logger, machine_id):
     logger.info("session {}:kill_panda(): Try to kill Panda on 10.200.33.{}.".format(machine_id, machine_id))
-    #Popen(['x-terminal-emulator','-e','../distributor_service/sessions/panda.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
-    #time.sleep(10)
+    Popen(['x-terminal-emulator','-e','../distributor_service/sessions/panda.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+    time.sleep(10)
 
 
 def kill_qemu(logger, machine_id):
@@ -130,7 +130,7 @@ class GenodeSession(AbstractSession):
         self._stop()
 
 
-    def connect(self):
+    def _connect(self):
         self._socket = socket.create_connection((self.get_host(), self.port))
         self.logger.info('session {}: connected to {}'.format(self.session_id, self.get_host()))
 
@@ -375,7 +375,7 @@ class GenodeSession(AbstractSession):
 
     def _available(self):
         try:
-            self.connect()
+            self._connect()
             meta = struct.pack('I', MagicNumber.AVAILABLE)
             self._send(len(meta),meta)
             # Wait for answer
@@ -390,7 +390,7 @@ class GenodeSession(AbstractSession):
             self._close()
             return True
 
-        except (socket.timeout,HOST_killed) as e:
+        except (socket.timeout, OSError, HOST_killed) as e:
             self.logger.debug('session {}: _available: {}'.format(self.session_id, e))
             self._close()
             return False
@@ -439,7 +439,7 @@ class QemuSession(GenodeSession):
 
     def connect(self):
         try:
-            GenodeSession.connect(self)
+            GenodeSession._connect(self)
         except Exception as e:
             self.logger.error("session {}: an error occured during connect(): {}".format(self.session_id, e))
             kill_qemu(self.logger, self.session_id)
@@ -472,14 +472,6 @@ class QemuSession(GenodeSession):
             raise HOST_killed('QEMU_{} was killed'.format(self.session_id))
 
 
-    def clear(self):
-        try:
-            GenodeSession._clear(self)
-        except socket.timeout as e:
-            self.logger.error("session {}: an error occured during clear: {}".format(self.session_id, e))
-            kill_qemu(self.logger, self.session_id)
-            raise HOST_killed('QEMU_{} was killed'.format(self.session_id))
-
 
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
@@ -507,7 +499,8 @@ class QemuSession(GenodeSession):
 class PandaSession(GenodeSession):
     def __init__(self, session_id, port, logging_level, startup_delay, timeout):
         GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
-        
+        self.number_of_tasksets = 0
+
 
     def get_host(self):
         return '10.200.33.{}'.format(self.session_id)
@@ -515,13 +508,24 @@ class PandaSession(GenodeSession):
 
     def start(self, taskset, admctrl=None):
         try:
+            if self.number_of_tasksets >= 50:
+                self.number_of_tasksets = 0
+                GenodeSession._send_reboot(self)
+                self.logger.info('session {}: panda was rebooted after 50 starts'.format(self.session_id))
+                time.sleep(self.startup_delay)
+                self.connect()
+            self.number_of_tasksets += 1
             GenodeSession.start(self, taskset, admctrl)
             self.t = 0
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during start: {}".format(self.session_id, e))
-            kill_panda(self.logger, self.session_id)
-            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
+            self.number_of_tasksets = 0
+            try:
+                GenodeSession._send_reboot(self)
+            except:
+                kill_panda(self.logger, self.session_id)
+            finally:
+                raise HOST_killed('PANDA_{} was rebooted'.format(self.session_id))
 
 
     def stop(self):
@@ -529,19 +533,23 @@ class PandaSession(GenodeSession):
             GenodeSession.stop(self)
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during stop: {}".format(self.session_id, e))
-            kill_panda(self.logger, self.session_id)
-            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
+            self.number_of_tasksets = 0
+            try:
+                GenodeSession._send_reboot(self)
+            except:
+                kill_panda(self.logger, self.session_id)
+            finally:
+                raise HOST_killed('PANDA_{} was rebooted'.format(self.session_id))
 
 
     def connect(self):
         try:
-            GenodeSession.connect(self)
+            GenodeSession._connect(self)
         except Exception as e:
             self.logger.error("session {}: an error occured during connect(): {}".format(self.session_id, e))
+            self.number_of_tasksets = 0
             kill_panda(self.logger, self.session_id)
             raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
 
 
     def close(self):
@@ -549,9 +557,9 @@ class PandaSession(GenodeSession):
             GenodeSession.close(self)
         except socket.timeout as e:
             self.logger.error("session {}: an error occured during close: {}".format(self.session_id, e))
+            self.number_of_tasksets = 0
             kill_panda(self.logger, self.session_id)
             raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
 
 
     def run(self):
@@ -561,44 +569,57 @@ class PandaSession(GenodeSession):
                 return True
             elif self.t > self.timeout:
                 self.logger.error("session {}: genode is not responding for over {}s, killing it".format(self.session_id, self.timeout))
-                raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
+                raise HOST_killed('PANDA_{} is killed'.format(self.session_id))
             else:
                 self.t += 2
                 return False
         except:
             self.logger.error("session {}: an error occured during run".format(self.session_id))
-            kill_panda(self.logger, self.session_id)
-            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
+            self.number_of_tasksets = 0
+            try:
+                GenodeSession._send_reboot(self)
+            except:
+                kill_panda(self.logger, self.session_id)
+            finally:
+                raise HOST_killed('PANDA_{} was rebooted'.format(self.session_id))
 
-
-    def clear(self):
-        try:
-            GenodeSession._clear(self)
-        except socket.timeout as e:
-            self.logger.error("session {}: an error occured during clear: {}".format(self.session_id, e))
-            kill_panda(self.logger, self.session_id)
-            raise HOST_killed('PANDA_{} was killed'.format(self.session_id))
-            GenodeSession._send_reboot()
 
 
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
-        time.sleep(self.startup_delay)
+        tries = 1
+        #time.sleep(self.startup_delay)
         while not inactive.is_set():
             #checking if panda is running genode
             self.logger.debug("session {}:start_host: ___________________________________".format(self.session_id))
             if GenodeSession._available(self):
                 return '10.200.33.{}'.format(self.session_id)
             else:
-                self.clean_host(self.logger, self.session_id)
-                if not _continue:
-                    inactive.set()
-                    return ''
-
+                tries += 1
+                time.sleep(2)
+                if tries > 4:
+                    try:
+                        GenodeSession._connect(self)
+                        GenodeSession._send_reboot(self)
+                        time.sleep(self.startup_delay)
+                        GenodeSession.close(self)
+                    except:
+                        kill_panda(self.logger, self.session_id)
+                    finally:
+                        if not _continue:
+                            inactive.set()
+                            return ''
 
 
     @staticmethod
-    def clean_host(logger, qemu_id):
-        logger.info('id {}: cleaning host before shutdown'.format(qemu_id))
-        #kill_panda(logger, qemu_id)
+    def clean_host(logger, panda_id):
+        pass
+        """
+        try:
+            GenodeSession._send_reboot()
+        except:
+            kill_panda(logger, panda_id)
+        finally:
+            logger.info('session {}: PANDA_{} was reset'.format(panda_id, panda_id))
+        """
+
