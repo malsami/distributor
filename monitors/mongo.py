@@ -1,4 +1,4 @@
-from taskgen.monitor import AbstractMonitor
+from distributor_service.monitor import AbstractMonitor
 from pymongo import MongoClient
 
 """Monitor for mongodb

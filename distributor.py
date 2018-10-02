@@ -146,7 +146,7 @@ class Distributor:
         return -1
         
 
-    def add_job(self, taskset, monitor = None, offset = 0, *session_params):
+    def add_job(self, taskset, monitor=None, is_list=False, offset=0, *session_params):
         #   Adds a taskset to the queue and calls _refresh_machines()
         #   :param taskset taskgen.taskset.TaskSet: a taskset for the distribution
         #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
@@ -156,25 +156,33 @@ class Distributor:
         #   must be implemented by the session class. A good example is the
         #   `taskgen.sessions.genode.GenodeSession`, which implements a parameter
         #   for optional admission control configuration.  
-        
-        if taskset is None or not isinstance(taskset, TaskSet):
-            raise TypeError("taskset must be of type TaskSet.")
-
         if monitor is not None:
-            if not isinstance(monitor, AbstractMonitor):
-                raise TypeError("monitor must be of type AbstractMonitor")
-
-        # wrap tasksets into an threadsafe iterator
-        generator = taskset.variants()
-        try:
-            for i in range(offset):
-                discard = generator.__next__()
-            with self._jobs_list_lock:
-                self._jobs.append(_Job(generator, monitor, offset, len(list(taskset.variants())), session_params))#TODO will ich hier immer variants aufrufen?
-            self.logger.info("a new job was added, offset was {}".format(offset))
-            self._refresh_machines()
-        except StopIteration:
+                if not isinstance(monitor, AbstractMonitor):
+                    raise TypeError("monitor must be of type AbstractMonitor")
+        if is_list:
+            for elem in taskset:
+                if not isinstance(elem, TaskSet):
+                    raise TypeError('tasksets must be of type Task.')
+            set_size = len(taskset)
+            generator = iter(taskset)
+        else:
+            if taskset is None or not isinstance(taskset, TaskSet):
+                raise TypeError("taskset must be of type TaskSet.")
+            
+            set_size = len(list(taskset.variants()))
+            generator = taskset.variants()
+        if offset > set_size:
             self.logger.error("offset was bigger than taskset size, no job was added")
+        else:
+            try:
+                for i in range(offset):
+                    discard = generator.__next__()
+                with self._jobs_list_lock:
+                    self._jobs.append(_Job(generator, monitor, offset, set_size, session_params))
+                self.logger.info("a new job of size {} was added, offset was {}".format(set_size, offset))
+                self._refresh_machines()
+            except StopIteration:
+                self.logger.error("offset was bigger than taskset size, no job was added")
             
 
     def kill_all_machines(self):
@@ -183,6 +191,14 @@ class Distributor:
         for machine, event, machine_id in self._machines:
             event.set()
         self.logger.info("\nAll machines shuting down.\n====############=====")
+
+
+    def reboot_genode(self):
+        #soft kill, callable from outside
+        self.logger.info("\n====############=====\nRebooting genode")
+        for machine, event, machine_id in self._machines:
+            machine.reboot_genode()
+        self.logger.info("\nAll genodes rebooting after processing the current set.\n====############=====")
 
 
     def shut_down_all_machines(self):

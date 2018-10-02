@@ -238,6 +238,8 @@ class GenodeSession(AbstractSession):
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
+                    #self.done = [True for t in self.tset]
+                    raise GENODE_malfunction('An error occured druing execution.')
                 elif _type == "JOBS_DONE":
                     self.done[_task_id] = True
                     if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None):
@@ -250,6 +252,10 @@ class GenodeSession(AbstractSession):
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
                 elif _type == "OUT_OF_QUOTA":
+                    # take last job of the list and set its end date.
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
+                elif _type == "OUT_OF_CAPS":
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
@@ -399,12 +405,14 @@ class GenodeSession(AbstractSession):
         self.logger.debug('session {}:_reboot():  Rebooting.'.format(self.session_id))
         meta = struct.pack('I', MagicNumber.REBOOT)
         self._send(len(meta),meta)
-
+        self.sent_bin = set()
 
         
 class HOST_killed(Exception):
     pass
 
+class GENODE_malfunction(Exception):
+    pass
 
 
 class QemuSession(GenodeSession):
@@ -573,8 +581,8 @@ class PandaSession(GenodeSession):
             else:
                 self.t += 2
                 return False
-        except:
-            self.logger.error("session {}: an error occured during run".format(self.session_id))
+        except Exception as e:
+            self.logger.error("session {}: an error occured during run: {}".format(self.session_id,e))
             self.number_of_tasksets = 0
             try:
                 GenodeSession._send_reboot(self)
@@ -588,8 +596,11 @@ class PandaSession(GenodeSession):
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
         tries = 1
+        rebooted = 0
         #time.sleep(self.startup_delay)
         while not inactive.is_set():
+            if rebooted > 2:
+                kill_panda(self.logger, self.session_id)
             #checking if panda is running genode
             self.logger.debug("session {}:start_host: ___________________________________".format(self.session_id))
             if GenodeSession._available(self):
@@ -601,6 +612,7 @@ class PandaSession(GenodeSession):
                     try:
                         GenodeSession._connect(self)
                         GenodeSession._send_reboot(self)
+                        rebooted +=1
                         time.sleep(self.startup_delay)
                         GenodeSession.close(self)
                     except:

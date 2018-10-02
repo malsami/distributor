@@ -42,6 +42,7 @@ class Machine(threading.Thread):
 		
 		self.inactive = inactive #threading.Event() |used to shut instance down
 		self._continue = True
+		self._reboot = False
 
 		self._session_class = session_class
 		self._session = self._session_class(self.machine_id, self._port, self.logging_level, self.startup_delay, timeout)
@@ -89,7 +90,11 @@ class Machine(threading.Thread):
 		self._current_generator.done(self._current_set)
 		self.logger.info("id {}: Taskset variant was successfully processed.".format(self.machine_id))
 		self._current_set = None
+		if self._reboot:
+			self._session._send_reboot()
+			self._reboot = False
 		self._session.close()
+		time.sleep(self.startup_delay)
 		self._session.removeSet()
 
 
@@ -158,7 +163,6 @@ class Machine(threading.Thread):
 					self._check_tries()
 					self._session.close()
 					self.started = False
-
 			else:
 				if self._current_set is None:
 					self._get_set()
@@ -185,6 +189,11 @@ class Machine(threading.Thread):
   
 	def close(self):
 		self._continue = False
+
+
+	def reboot_genode(self):
+		self._reboot = True
+
 
 	def _get_taskset(self):
 		if self._current_generator is not None and  self._current_generator.empty():
