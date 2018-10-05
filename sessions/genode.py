@@ -54,7 +54,8 @@ class MagicNumber:
 def kill_panda(logger, machine_id):
     logger.info("session {}:kill_panda(): Try to kill Panda on 10.200.33.{}.".format(machine_id, machine_id))
     Popen(['x-terminal-emulator','-e','../distributor_service/sessions/panda.sh', str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
-    time.sleep(10)
+    #Popen(['./poe_reboot.sh', 'panda'+str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+    time.sleep(15)
 
 
 def kill_qemu(logger, machine_id):
