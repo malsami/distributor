@@ -90,26 +90,12 @@ class Machine(threading.Thread):
 		self._current_generator.done(self._current_set)
 		self.logger.info("id {}: Taskset variant was successfully processed.".format(self.machine_id))
 		self._current_set = None
-		if self._reboot:
-			self._session._send_reboot()
-			self._reboot = False
 		self._session.close()
-		time.sleep(self.startup_delay)
 		self._session.removeSet()
-
-
-	def _check_tries(self):
-		if self._current_set_tries >= self._max_set_tries:
-			if self._monitor is not None:
-				self._monitor.__taskset_bad__(self._current_set, self._current_set_tries)
-			self.logger.debug("id {}: Taskset variant is logged as BAD after {} tries".format(self.machine_id, self._current_set_tries))
-			self._current_set_tries = 1
-			self._current_set = None
-		else:
-			self._current_set_tries += 1
-			for task in self._current_set:
-				task.jobs = []
-			self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
+		if self._reboot:
+			self._session_class.clean_host(self.logger, self.machine_id)
+			self._reboot = False
+			self.host = ''
 
 
 	def _active(self):
@@ -149,6 +135,20 @@ class Machine(threading.Thread):
 			self.inactive.set()#initiating shutdown with no _current_set
 
 
+	def _check_tries(self):
+		if self._current_set_tries >= self._max_set_tries:
+			if self._monitor is not None:
+				self._monitor.__taskset_bad__(self._current_set, self._current_set_tries)
+			self.logger.debug("id {}: Taskset variant is logged as BAD after {} tries".format(self.machine_id, self._current_set_tries))
+			self._current_set_tries = 1
+			self._current_set = None
+		else:
+			self._current_set_tries += 1
+			for task in self._current_set:
+				task.jobs = []
+			self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
+
+
 	def run(self):
 		while not self.inactive.is_set():#life loop of Machine
 			if self.host:
@@ -164,9 +164,7 @@ class Machine(threading.Thread):
 					self._session.close()
 					self.started = False
 			else:
-				if self._current_set is None:
-					self._get_set()
-				if not self.inactive.is_set() and self._current_set is not None:
+				if not self.inactive.is_set():
 					self.host = self._session.start_host(self.inactive, self._continue)
 
 		# end of while ###### machine is shutting down, some cleanup takes place #######
