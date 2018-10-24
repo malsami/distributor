@@ -21,7 +21,7 @@ class Machine(threading.Thread):
 	# Creates a listener_thread for log data from Genode
 
 	# This class is only instatiated in `_refresh_starter`.
-
+  
 	def __init__(self, machine_id, lock, tasksets, port, session_class, inactive, id_to_machine, logging_level, delay, set_tries, timeout):
 		super(Machine, self).__init__()
 		# setting up logger
@@ -58,6 +58,7 @@ class Machine(threading.Thread):
 		self._monitor = None
 
 		self.started = False
+
 		self.finished = False
 		
 		self.id_to_machine=id_to_machine
@@ -191,6 +192,101 @@ class Machine(threading.Thread):
 
 	def reboot_genode(self):
 		self._reboot = True
+
+=======
+			if not self._session_died:
+				try:
+					if self._current_set is not None:
+						self.finished = self._session.finished()
+						self.logger.debug("id {}: started = {}, stopped = {}, finished() = {}".format(self.machine_id, self.started, self.stopped, self.finished))
+						if not self.started:# if not started we want to call session.start()
+							self.logger.debug("id {}: have a set and about to start".format(self.machine_id))
+							try:
+								self._session.start(self._current_set)#, *self._session_params)#this needs to be added if session_params should be used again
+								self.started = True
+								self.stopped = False
+								# inform the monitor about the start.
+								if self._monitor is not None:
+									self._monitor.__taskset_start__(self._current_set)
+								self.logger.info("id {}: Taskset variant processing started.".format(self.machine_id))
+							except TypeError as e:#TODO thought this only catches the type error, but also takes other errors...
+								#meaning session params for a quemu instance are not instance of dict(admctrl) or a taskset not of TaskSet
+								self.logger.critical("id {}:error while start: {}".format(self.machine_id, e))
+								#should not happen because we check the type in distributor.add_job()
+						
+						elif not self.stopped and self.finished:
+							self.logger.debug("id {}: have a finished set and about to stop".format(self.machine_id))
+							self._session.stop()
+							self.started = False
+							self.stopped = True
+							if self._monitor is not None:
+								self._monitor.__taskset_finish__(self._current_set)
+							# The _current_set is finished and the queue (`current_generator`) is notified
+							# about the processed task-set. This is important, because
+							# TaskSetQueue keeps track of currently processed task-sets.
+							self._current_generator.done(self._current_set)
+							self.logger.debug("id {}: Taskset variant was successfully processed.".format(self.machine_id))
+							self._current_set = None
+							self._session.removeSet()
+						else:#the taskset is not finished
+							if self.t > 40:
+								self.logger.critical("id {}:run() nothing from the qemu for {}s...".format(self.machine_id, self.t))
+								self.t = 0
+								kill_qemu(self.logger, self.machine_id)
+								self.logger.info("id {}: Qemu instance of {} was killed.".format(self.machine_id, self._host))
+								for task in self._current_set:
+									task.jobs = []
+								if self._current_set_tries >= self._current_set_max_tries:
+									if self._monitor is not None:
+										self._monitor.__taskset_bad__(self._current_set, self._current_set_tries)
+									self._current_set_tries = 1
+									self._current_set = None
+									self.logger.debug("id {}: Taskset variant is reset and put back".format(self.machine_id))
+								else:
+									self._current_set_tries += 1
+									self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
+								self._session.close()
+								self.started = False
+								self.stopped = True
+								self._session_died = True
+								self._session = None
+								
+							else:	
+								self.logger.debug("id {}:run() have a set, running {}s, will sleep 2s".format(self.machine_id, self.t))
+								if self._session is not None:
+									if self._session.run():
+										self.t = 0
+										self.logger.info("id {}:run() have session, received a profile".format(self.machine_id))
+										if self._monitor is not None and self._current_set is not None:
+											self._monitor.__taskset_event__(self._current_set)
+								time.sleep(2)
+								self.t+=2
+
+
+					else:#_current_set is None
+						if self._continue:#check for soft shutdown
+							self.logger.info("id {}: getting a taskset, continue is True".format(self.machine_id))
+							try:
+								if not self._get_taskset():
+									self.logger.info("id {}: no more tasksets, go kill yourself".format(self.machine_id))
+									#no more tasksets, go kill yourself!
+									self.inactive.set()
+							except StopIteration:
+								self.logger.debug("id {}: StopIteration: Last taskset was stolen.".format(self.machine_id))
+								if self._current_set is not None:#should never be the case, but better save than sorry
+									self.logger.critical("id {}: This is weired, a set was appointed while a StopIteration happened. The Taskset was lost.".format(self.machine_id))
+						else:
+							self.logger.info("id {}: shutting down, continue is False".format(self.machine_id))
+							self.inactive.set()#initiating shutdown with no _current_set
+				except (socket.error,socket.timeout) as e:
+					self.logger.debug("id {}: run(): Host at {} died with:".format(self.machine_id, self._host,e))
+					if self._current_set is not None:
+						# the shutdown occured during the task-set processing. The task-set
+						# is reset by clearing the jobs attribute of each task.
+						for task in self._current_set:
+							task.jobs = []
+						if self._current_set_tries >= self._current_set_max_tries:
+							if self._monitor is not None:
 
 
 	def _get_taskset(self):
