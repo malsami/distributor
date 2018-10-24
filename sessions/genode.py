@@ -197,47 +197,25 @@ class GenodeSession(AbstractSession):
                     if not task.jobs or task.jobs[-1].start_date is not None:
                         task.jobs.append(Job())
                     task.jobs[-1].start_date = _timestamp
-                elif _type == "EXIT":
+                elif _type == "NOT_SCHEDULED":
+                    # create new job in list and set its end date.
+                    if not task.jobs or task.jobs[-1].start_date is not None:
+                        task.jobs.append(Job())
+                    task.jobs[-1].start_date = _timestamp
+                    task.jobs[-1].end_date = _timestamp
+                    task.jobs[-1].exit_value = _type
+                elif _type == "EXIT" or _type == "EXIT_CRITICAL" or _type == "EXIT_ERROR" or _type == 'EXIT_PERIOD' or _type == "EXIT_EXTERNAL" or _type == "OUT_OF_QUOTA" or _type == "OUT_OF_CAPS":
                     # take last job of the list and set its end date.
                     task.jobs[-1].end_date = _timestamp
                     task.jobs[-1].exit_value = _type
-                elif _type == "EXIT_CRITICAL":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                elif _type == 'EXIT_PERIOD':
-                    #it was not possible to 
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                elif _type == "EXIT_EXTERNAL":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                elif _type == "EXIT_ERROR":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                    #self.done = [True for t in self.tset]
-                    raise GENODE_malfunction('An error occured druing execution.')
+                    if _type == "EXIT_ERROR":
+                        #self.done = [True for t in self.tset]
+                        raise GENODE_malfunction('An error occured druing execution.')
                 elif _type == "JOBS_DONE":
                     self.done[_task_id] = True
                     if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None):
                         self.logger.critical("session {}:run(): JOBS_DONE from Genode is received but jobs is not number of jobs long yet.".format(self.session_id))
                         raise GENODE_malfunction("Reiceived a jobs done for id {} and taskset description: {}".format(_task_id, self.tset.description()))
-                elif _type == "NOT_SCHEDULED":
-                    # create new job in list and set its end date.
-                    if not task.jobs or task.jobs[-1].start_date is not None:
-                        task.jobs.append(Job())
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                elif _type == "OUT_OF_QUOTA":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
-                elif _type == "OUT_OF_CAPS":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
                 else:
                     self.logger.critical("session {}:run(): Unknown event type {}".format(self.session_id,_type))
 
@@ -342,7 +320,7 @@ class GenodeSession(AbstractSession):
                 self.logger.critical('session {}:_send_bins(): Invalid answer received, aborting: {}'.format(self.session_id, msg))
                 break
 
-            path = "../taskgen/bin/{}".format(name)
+            path = "../bin/{}".format(name)
             file = open(path, 'rb').read()
             size = os.stat(path).st_size
             self.logger.debug('session {}:_send_bins(): Sending {} of size {}.'.format(self.session_id, name, size))
