@@ -145,7 +145,7 @@ class Machine(threading.Thread):
 		else:
 			self._current_set_tries += 1
 			for task in self._current_set:
-				task.jobs = []
+				task['jobs'] = {}
 			self.logger.info("id {}: Taskset variant is tried for {}. time".format(self.machine_id, self._current_set_tries))
 
 
@@ -172,7 +172,7 @@ class Machine(threading.Thread):
 			# the shutdown occured during the task-set processing. The task-set
 			# pushed back to the task-set queue.
 			for task in self._current_set:
-				task.jobs = []
+				task['jobs'] = {}
 			self._current_generator.put(self._current_set)
 			with self._job_list_lock:
 				if self._current_generator not in self._job_list:

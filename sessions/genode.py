@@ -12,7 +12,6 @@ import sys
 sys.path.append('../') # so we can find taskgen
 from distributor_service.session import AbstractSession
 from taskgen.taskset import TaskSet
-from taskgen.task import Job
 
 
 
@@ -192,28 +191,23 @@ class GenodeSession(AbstractSession):
                 
                 # update job of task
                 self.logger.debug("session {}:run(): task_id: {} |received event of type {} with timestamp {}".format(self.session_id, _task_id, _type, _timestamp))
+                jobsSize = len(task['jobs'])
                 if _type == "START":
                     # add a new job and set its start date.
-                    if not task.jobs or task.jobs[-1].start_date is not None:
-                        task.jobs.append(Job())
-                    task.jobs[-1].start_date = _timestamp
+                    task['jobs'][str(jobsSize + 1)] = [_timestamp]
                 elif _type == "NOT_SCHEDULED":
-                    # create new job in list and set its end date.
-                    if not task.jobs or task.jobs[-1].start_date is not None:
-                        task.jobs.append(Job())
-                    task.jobs[-1].start_date = _timestamp
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
+                    # create new job entry and set its start_date, end_date and exit_type.
+                    task['jobs'][str(jobsSize + 1)] = [_timestamp, _timestamp, _type]
                 elif _type == "EXIT" or _type == "EXIT_CRITICAL" or _type == "EXIT_ERROR" or _type == 'EXIT_PERIOD' or _type == "EXIT_EXTERNAL" or _type == "OUT_OF_QUOTA" or _type == "OUT_OF_CAPS":
-                    # take last job of the list and set its end date.
-                    task.jobs[-1].end_date = _timestamp
-                    task.jobs[-1].exit_value = _type
+                    # take current job of the list and set its end date.
+                    task['jobs'][str(jobsSize)].append(_timestamp)
+                    task['jobs'][str(jobsSize)].append(_type)
                     if _type == "EXIT_ERROR":
                         #self.done = [True for t in self.tset]
                         raise GENODE_malfunction('An error occured druing execution.')
                 elif _type == "JOBS_DONE":
                     self.done[_task_id] = True
-                    if not task.jobs or not((len(task.jobs)==task["numberofjobs"]) and task.jobs[-1].end_date is not None):
+                    if not task['jobs'] or not((len(task['jobs'])==task["numberofjobs"]) and len(task['jobs'][str(jobsSize)]) == 3):
                         self.logger.critical("session {}:run(): JOBS_DONE from Genode is received but jobs is not number of jobs long yet.".format(self.session_id))
                         raise GENODE_malfunction("Reiceived a jobs done for id {} and taskset description: {}".format(_task_id, self.tset.description()))
                 else:
@@ -387,7 +381,7 @@ class QemuSession(GenodeSession):
             GenodeSession.start(self, taskset, admctrl)
             self.t = 0
         except socket.timeout as e:
-            errorHandling(self.logger, self.session_id, 'start', e)
+            QemuSession.errorHandling(self.logger, self.session_id, 'start', e)
 
 
     def stop(self):
@@ -403,14 +397,14 @@ class QemuSession(GenodeSession):
         try:
             GenodeSession._connect(self)
         except Exception as e:
-            errorHandling(self.logger, self.session_id, 'connect', e)
+            QemuSession.errorHandling(self.logger, self.session_id, 'connect', e)
 
 
     def close(self):
         try:
             GenodeSession.close(self)
         except socket.timeout as e:
-            errorHandling(self.logger, self.session_id, 'close', e)
+            QemuSession.errorHandling(self.logger, self.session_id, 'close', e)
 
 
     def run(self):
@@ -425,7 +419,7 @@ class QemuSession(GenodeSession):
                 self.t += 2
                 return False
         except Exception as e:
-            errorHandling(self.logger, self.session_id, 'run', e)
+            QemuSession.errorHandling(self.logger, self.session_id, 'run', e)
 
 
     def start_host(self, inactive, _continue):
@@ -480,28 +474,28 @@ class PandaSession(GenodeSession):
             GenodeSession.start(self, taskset, admctrl)
             self.t = 0
         except socket.timeout as e:
-            errorHandling(self.logger, self.session_id, 'start', e)
+            PandaSession.errorHandling(self.logger, self.session_id, 'start', e)
 
 
     def stop(self):
         try:
             GenodeSession.stop(self)
         except socket.timeout as e:
-            errorHandling(self.logger, self.session_id, 'stop', e)
+            PandaSession.errorHandling(self.logger, self.session_id, 'stop', e)
 
 
     def connect(self):
         try:
             GenodeSession._connect(self)
         except Exception as e:
-            errorHandling(self.logger, self.session_id, 'connect', e)
+            PandaSession.errorHandling(self.logger, self.session_id, 'connect', e)
 
 
     def close(self):
         try:
             GenodeSession.close(self)
         except socket.timeout as e:
-            errorHandling(self.logger, self.session_id, 'close', e)
+            PandaSession.errorHandling(self.logger, self.session_id, 'close', e)
 
 
     def run(self):
@@ -516,7 +510,7 @@ class PandaSession(GenodeSession):
                 self.t += 2
                 return False
         except Exception as e:
-            errorHandling(self.logger, self.session_id, 'run', e)
+            PandaSession.errorHandling(self.logger, self.session_id, 'run', e)
 
 
     @staticmethod
