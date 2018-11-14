@@ -6,7 +6,7 @@ bridge=br0
 ip=10.200.45.$1
 tap=tap$1
 cur=$(pwd)
-image="../image.elf" #input genode image
+image="../bin/image.elf" #input genode image
 
 #creating tap device
 sudo ip tuntap add name $tap mode tap
