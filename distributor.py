@@ -25,6 +25,7 @@ from taskgen.taskset import TaskSet
 class Distributor:
     """Class for controll over host sessions and asycronous distribution of tasksets"""
 
+
     def __init__(self, max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001, startup_delay=20, set_tries=1, timeout=40):
         self.max_allowed_machines = max_allowed #this value is hardcoded and dependant on the amount of defined entrys in the dhcpd.conf it can be lower but not higher
         self.logger = logging.getLogger('Distributor')
@@ -54,6 +55,7 @@ class Distributor:
         self._cleaner = threading.Thread(target = Distributor._clean_machines, args = (self,),daemon=True)
         self.delay = startup_delay
         self.logger.info('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
+
         self.logger.info("=====================================================")
         self.logger.info("Distributor started")
         self.logger.info("=====================================================")
@@ -123,6 +125,7 @@ class Distributor:
             else:
                 self.logger.debug("no machines currently running")
 
+
     def spawn_machine(self):
         new_id = self.get_new_id()
         self.logger.debug('new_id: {}'.format(new_id))
@@ -154,7 +157,7 @@ class Distributor:
         #   `start` method of the actual session. Pay attention: Theses parameters
         #   must be implemented by the session class. A good example is the
         #   `taskgen.sessions.genode.GenodeSession`, which implements a parameter
-        #   for optional admission control configuration.  
+        #   for optional admission control configuration.
         if monitor is not None:
                 if not isinstance(monitor, AbstractMonitor):
                     raise TypeError("monitor must be of type AbstractMonitor")
@@ -182,6 +185,7 @@ class Distributor:
                 self._refresh_machines()
             except StopIteration:
                 self.logger.error("offset was bigger than taskset size, no job was added")
+
             
 
     def kill_all_machines(self):
@@ -239,6 +243,7 @@ class Distributor:
                 self.logger.info('#######################################################')
                 time.sleep(sleeptime)
             
+
 
 class _Job():
     """Takes an iterator/generator and makes it thread-safe by

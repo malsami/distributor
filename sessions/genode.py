@@ -49,12 +49,27 @@ class MagicNumber:
     #hint: alive means no kernel panic
     REBOOT = 0x159D3
 
+def kill_qemu(logger, machine_id):
+    logger.error("host {}:_kill_qemu(): Qemu instance of 10.200.45.{} is killed.".format(machine_id, machine_id))
+    #Popen(['screen', '-X', '-S', 'qemu'+str(machine_id), 'kill'], stdout = PIPE, stderr = PIPE)
+    #Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(machine_id)], stdout=PIPE, stderr=PIPE)
+    pids = Popen(['{}/../grep_screen.sh'.format(os.path.dirname(os.path.realpath(__file__))), str(machine_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+    c = 0
+    for p in pids:
+        pid = str(p,'utf-8')
+        Popen(['kill', '-9', pid], stdout=PIPE, stderr=PIPE)
+        c+=1
+    Popen(['sudo', 'ip', 'link', 'delete', 'tap{}'.format(machine_id)], stdout=PIPE, stderr=PIPE)
+    Popen(['screen', '-wipe'], stdout=PIPE, stderr=PIPE)
+    logger.debug("id {}: clean_id: removed {} screen(s)".format(machine_id,c))
+
     
 # This class is a pretty simple implementation for the communication with a
 # genode::Taskloader instance. There are no error handling mechanism and all
 # errors are passed on to the caller. Furthmore, the communication is not
 # asyncron, which means that every call is blocking.
 class GenodeSession(AbstractSession):
+
 
     def __init__(self, session_id, port, logging_level, startup_delay, timeout):
         socket.setdefaulttimeout(10)
@@ -328,7 +343,7 @@ class GenodeSession(AbstractSession):
         self.logger.debug('session {}:_start():  Starting tasks on server.'.format(self.session_id))
         meta = struct.pack('I', MagicNumber.START)
         self._send(len(meta),meta)
-    
+        
 
     def _available(self):
         try:
