@@ -10,7 +10,6 @@ import time
 import logging
 import errno
 import importlib
-import copy
 from queue import Empty, Queue, Full
 from subprocess import Popen, PIPE
 
@@ -162,7 +161,7 @@ class Distributor:
         if is_list:
             for elem in taskset:
                 if not isinstance(elem, TaskSet):
-                    raise TypeError('tasksets must be of type Task.')
+                    raise TypeError('tasksets must be of type TaskSet.  Currently is {}'.format(type(taskset)))
             set_size = len(taskset)
             generator = iter(taskset)
         else:
@@ -208,6 +207,10 @@ class Distributor:
             machine.close()
         self.logger.info("\nAll machines shuting down after processing the current set.\n====############=====")
 
+
+    def resume(self):
+        self._refresh_machines()
+        
 
     def _clean_machines(self):
         # cleans up _machines list and machine states and logs values
@@ -263,7 +266,7 @@ class _Job():
                 
             # take a new one from the iterator
             if taskset is None:
-                taskset = copy.deepcopy(self.it.__next__())
+                taskset = self.it.__next__()
 
             # keep track of current processed tasksets
             self.in_progress.append(taskset)
@@ -277,7 +280,7 @@ class _Job():
                 return False
             # in iterator?
             try:
-                self.queue.put(copy.deepcopy(self.it.__next__()))
+                self.queue.put(self.it.__next__())
                 return False
             except StopIteration:
                 return True

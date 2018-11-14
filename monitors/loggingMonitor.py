@@ -23,12 +23,11 @@ class LoggingMonitor(AbstractMonitor):
     def __taskset_finish__(self, taskset):
         for task in taskset:
             self.logger.info("task: {}".format(task.id))
-            for job in task.jobs:
-                self.logger.info("{} {} {}".format(job.start_date, job.end_date, job.exit_value))
+            self.logger.info(task)
 
     def __taskset_stop__(self, taskset):
         for task in taskset:
-            task.jobs = []
+            task['jobs'] = {}
         pass
 
     def __taskset_bad__(self, taskset, n):
