@@ -381,14 +381,14 @@ class QemuSession(GenodeSession):
         try:
             GenodeSession.start(self, taskset, admctrl)
             self.t = 0
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             QemuSession.errorHandling(self.logger, self.session_id, 'start', e)
 
 
     def stop(self):
         try:
             GenodeSession.stop(self)
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             self.logger.error("session {}: an error occured during stop: {}".format(self.session_id, e))
             QemuSession.clean_host(self.logger, self.session_id)
             raise HOST_killed('QEMU_{} was killed'.format(self.session_id))
@@ -404,7 +404,7 @@ class QemuSession(GenodeSession):
     def close(self):
         try:
             GenodeSession.close(self)
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             QemuSession.errorHandling(self.logger, self.session_id, 'close', e)
 
 
@@ -474,14 +474,14 @@ class PandaSession(GenodeSession):
         try:
             GenodeSession.start(self, taskset, admctrl)
             self.t = 0
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             PandaSession.errorHandling(self.logger, self.session_id, 'start', e)
 
 
     def stop(self):
         try:
             GenodeSession.stop(self)
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             PandaSession.errorHandling(self.logger, self.session_id, 'stop', e)
 
 
@@ -495,7 +495,7 @@ class PandaSession(GenodeSession):
     def close(self):
         try:
             GenodeSession.close(self)
-        except socket.timeout as e:
+        except (socket.timeout, BrokenPipeError) as e:
             PandaSession.errorHandling(self.logger, self.session_id, 'close', e)
 
 
