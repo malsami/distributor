@@ -151,9 +151,9 @@ class Distributor:
         return -1
         
 
-    def add_job(self, taskset, monitor=None, is_list=False, offset=0, *session_params):
-        #   Adds a taskset to the queue and calls _refresh_machines()
-        #   :param taskset taskgen.taskset.TaskSet: a taskset for the distribution
+    def add_job(self, tasksetList, monitor=None, offset=0, *session_params):
+        #   Adds a list of tasksets to the queue and calls _refresh_machines()
+        #   :param tasksetList [taskgen.taskset.TaskSet]: a list of tasksets for the distribution
         #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
         #   :param offset  number of tasksets that should be discarded from the head of the generator
         #   :param session_params: optional parameters which are passed to the
@@ -164,31 +164,21 @@ class Distributor:
         if monitor is not None:
                 if not isinstance(monitor, AbstractMonitor):
                     raise TypeError("monitor must be of type AbstractMonitor")
-        if is_list:
-            for elem in taskset:
-                if not isinstance(elem, TaskSet):
-                    raise TypeError('tasksets must be of type TaskSet.  Currently is {}'.format(type(taskset)))
-            set_size = len(taskset)
-            generator = iter(taskset)
+        
+        for elem in tasksetList:
+            if not isinstance(elem, TaskSet):
+                raise TypeError('tasksets must be of type TaskSet.  Currently is {}'.format(type(taskset)))
+        set_size = len(tasksetList)
+        if offset >= set_size:
+            self.logger.error("offset was bigger than number of elements in tasksetList, no job was added")
         else:
-            if taskset is None or not isinstance(taskset, TaskSet):
-                raise TypeError("taskset must be of type TaskSet.")
-            
-            set_size = len(list(taskset.variants()))
-            generator = taskset.variants()
+            generator = iter(tasksetList[offset:])
+        
         self.halt = False
-        if offset > set_size:
-            self.logger.error("offset was bigger than taskset size, no job was added")
-        else:
-            try:
-                for i in range(offset):
-                    discard = generator.__next__()
-                with self._jobs_list_lock:
-                    self._jobs.append(_Job(generator, monitor, offset, set_size, session_params))
-                self.logger.info("a new job of size {} was added, offset was {}".format(set_size, offset))
-                self._refresh_machines()
-            except StopIteration:
-                self.logger.error("offset was bigger than taskset size, no job was added")
+        with self._jobs_list_lock:
+            self._jobs.append(_Job(generator, monitor, offset, set_size, session_params))
+        self.logger.info("a new job of size {} was added, offset was {}".format(set_size, offset))
+        self._refresh_machines()
 
             
 
