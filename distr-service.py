@@ -1,3 +1,5 @@
+print('this is deprecated...')
+'''
 #!/usr/bin/env python3.5
 from service import Service, find_syslog
 import logging
@@ -76,14 +78,14 @@ if __name__ == '__main__':
 			print("Service is not running.")
 
 	elif cmd == 'help':
-		h = "The distr-service.py is accessible through the following commands:\n"
-		h+= "\"distr-service.py service_start\"		is starting the service in the background\n"
-		h+= "\"distr-service.py service_stop\"		is stopping the background service\n"
-		h+= "\"distr-service.py service_status\"	is outputting whether there is an active background service\n"
-		h+= "\"distr-service.py add_job\"			expects a Taskset, as defined in the taskgen Module,\n 	a monitor, implementing the AbstractMonitor and\n optional session parameters can also be provided.\n"
-		h+= "\"distr-service.py get_max_machine_value\" 	returns the current number of machines the distributor can start up\n"
-		h+= "\"distr-service.py change_max_machine_value\"	expects a positive integer to set the max machine value to\n"
-		h+= "\"distr-service.py help\"				prints this help message.\n"
+		h = 'The distr-service.py is accessible through the following commands:\n'
+		h+= '"distr-service.py service_start"		is starting the service in the background\n'
+		h+= '"distr-service.py service_stop"		is stopping the background service\n'
+		h+= '"distr-service.py service_status"	is outputting whether there is an active background service\n'
+		h+= '"distr-service.py add_job"			expects a Taskset, as defined in the taskgen Module,\n 	a monitor, implementing the AbstractMonitor and\n optional session parameters can also be provided.\n'
+		h+= '"distr-service.py get_max_machine_value" 	returns the current number of machines the distributor can start up\n'
+		h+= '"distr-service.py change_max_machine_value"	expects a positive integer to set the max machine value to\n'
+		h+= '"distr-service.py help"				prints this help message.\n'
 		
 		print(h)
 	
@@ -98,7 +100,7 @@ if __name__ == '__main__':
 		sys.exit('Unknown command "%s".\n Try "distr-service.py help" to view available commands.' % cmd)
 
 
-"""
+	"""
 	elif cmd == 'add_job':
 		#takes an optional session_params argument
 		if(len(sys.argv) < 4):
@@ -128,3 +130,4 @@ if __name__ == '__main__':
 		service.distributor.set_max_machine_value(max_val)
 		print("new max machine value: ", service.distributor.get_max_machine_value())
 	"""
+'''
