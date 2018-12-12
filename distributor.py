@@ -60,7 +60,9 @@ class Distributor:
         self.logger.info("Distributor started")
         self.logger.info("=====================================================")
         
+        self.halt = False
         self._cleaner.start()
+
         
 
     def get_distributor_state(self):    
@@ -92,6 +94,7 @@ class Distributor:
             else:
                 self.logger.info("Adjusted the max_machine value from {} to {}".format(self._max_machine, new_value))
                 self._max_machine = new_value
+                self.halt = False
             self._refresh_machines()
         else:
             raise ValueError("The new max_machine value is not an integer greater than zero.")
@@ -173,6 +176,7 @@ class Distributor:
             
             set_size = len(list(taskset.variants()))
             generator = taskset.variants()
+        self.halt = False
         if offset > set_size:
             self.logger.error("offset was bigger than taskset size, no job was added")
         else:
@@ -190,6 +194,7 @@ class Distributor:
 
     def kill_all_machines(self):
         #hard kill, callable from outside
+        self.halt = True
         self.logger.info("\n====############=====\nKilling machines")
         for machine, event, machine_id in self._machines:
             event.set()
@@ -206,6 +211,7 @@ class Distributor:
 
     def shut_down_all_machines(self):
         #soft kill, callable from outside
+        self.halt = True
         self.logger.info("\n====############=====\nShutting down machines")
         for machine, event, machine_id in self._machines:
             machine.close()
@@ -213,6 +219,7 @@ class Distributor:
 
 
     def resume(self):
+        self.halt = False
         self._refresh_machines()
         
 
@@ -241,6 +248,8 @@ class Distributor:
                 self.logger.debug("_machines after cleaning: {}".format([machine_id for _,_,machine_id in self._machines]))
                 self.logger.info("[(processing/-ed, of total)]: {}".format([(tset.already_used,tset.total_it_length) for tset in self._jobs]))
                 self.logger.info('#######################################################')
+                if not self.halt and self.get_distributor_state() and self._max_machine > len(self._machines):
+                    self._refresh_machines()
                 time.sleep(sleeptime)
             
 
