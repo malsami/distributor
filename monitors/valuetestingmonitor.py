@@ -1,7 +1,7 @@
 
 import sys
 sys.path.append('../')
-from distributor_service.monitor import AbstractMonitor
+from distributor.monitor import AbstractMonitor
 import logging
 
 class ValueTestingMonitor(AbstractMonitor):

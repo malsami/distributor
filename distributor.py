@@ -16,9 +16,9 @@ from subprocess import Popen, PIPE
 import os
 import sys
 sys.path.append('../')
-from distributor_service.monitor import AbstractMonitor
-from distributor_service.session import AbstractSession
-from distributor_service.machine import Machine
+from distributor.monitor import AbstractMonitor
+from distributor.session import AbstractSession
+from distributor.machine import Machine
 from taskgen.taskset import TaskSet
 
 
@@ -31,7 +31,7 @@ class Distributor:
         self.logger = logging.getLogger('Distributor')
         self.logging_level = logging_level
         if not len(self.logger.handlers):
-            self.hdlr = logging.FileHandler('../distributor_service/log/distributor.log')
+            self.hdlr = logging.FileHandler('../distributor/log/distributor.log')
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
@@ -44,7 +44,7 @@ class Distributor:
         self._port = port
         self._set_tries = set_tries
         self.timeout = timeout
-        self._session_class = getattr(importlib.import_module("distributor_service.sessions.genode"), session_type)
+        self._session_class = getattr(importlib.import_module("distributor.sessions.genode"), session_type)
 
         self._jobs_list_lock = threading.Lock()
         self._jobs = []
@@ -154,7 +154,7 @@ class Distributor:
     def add_job(self, tasksetList, monitor=None, offset=0, *session_params):
         #   Adds a list of tasksets to the queue and calls _refresh_machines()
         #   :param tasksetList [taskgen.taskset.TaskSet]: a list of tasksets for the distribution
-        #   :param monitor distributor_service.monitor.AbstractMonitor: a monitor to handle the resulting data
+        #   :param monitor distributor.monitor.AbstractMonitor: a monitor to handle the resulting data
         #   :param offset  number of tasksets that should be discarded from the head of the generator
         #   :param session_params: optional parameters which are passed to the
         #   `start` method of the actual session. Pay attention: Theses parameters

@@ -1,57 +1,45 @@
-### The Distributor as a Service.
-The service will be running in the background, holding an instance of the distributor.
+### The Distributor
+The Distributor component in [distributor.py] manages a certain (predefined) number of Machine instances. It also takes care of data that was provided to the Distributor for execution And provides it to the Machine instances.
 
-The service will provide an interface for the following commands:
+The Disttributor provides the following options via its init().
+If no values are set, the init is called as follows:
+```python
+init(max_machine=1, max_allowed=42, session_type="QemuSession", logging_level=logging.DEBUG, bridge='br0', port=3001, startup_delay=20, set_tries=1, timeout=40)
+```
+## variable Values
+* max\_machine 
+  determines the maximal number of machines, which can be started in this Distributor instance
+* session\_type 
+  is used to determine the session type to fit the target hardware setup, only accepts sessions defined in [sessions/genode.py] (this is defined in line 47 in [distributor.py])
+* logging_level 
+  takes a logging level like logging.DEBUG or logging.CRITICAL
+* startup\_delay 
+  defines how long a session waits to establsh a connection to Genode after starting a qemu instance or another hardware board
+* set_tries
+  defines the maximum amount of times a taskset is tried after it had to be aborted due to Genode not responding anymore
+* timeout
+  defines a time in seconds of no new message from Genode after which the session component belives Genode to be dead
 
-* _service\_start_
-* _service\_stop_
-* _service\_status_
-* _add\_job_
+## not to be changed via at init
+* max\_allowed 
+  determines a maximum value, currently set to 42, this limit is due to the limited entries in the dhcp configuration used in our setup
+* bridge 
+  defines the name of the virtual network bridge used with the quemu instances
+* port 
+  defines the port for the connection with Genode
 
-  expects a taskset and a monitor as defined by the [taskgen module]()
+## Methods for use
+* get\_max\_machine\_value()
+  this returns the current value of max\_machine
+* set\_max\_machine\_value(new\_value)
+  sets the current max\_machine\_value to max(new\_value, max\_allowed)
+* kill\_all\_machines()
+  hard kill of all running Machine instances
+* reboot\_genode()
+  sends signal so reboot Genode after finishing the currently executed taskset
+* shut\_down\_all\_machines()
+  lets Machines finish their current taskset and then they shut down
+* add\_jobs(tasksetList, monitor, offset)
+  accepts a list of TaskSet (from the taskgen module) instances and some monitor implementing monitor.AbstractMonitor.  In addition an offset can be provided if the first 'offset' TaskSet elements should be discarded
+  
 
-* _check\_state_
-* _get\_max\_machine\_value_
-
-  returns the current max\_machine\_value
-
-* _change\_max\_machine\_value_
-
-  expects a positive integer
-
-The distributor is instantiated upon starting the service and is running _idle_ in the background. 
-At initial startup of the distributor a network bridge with the name **br0** is created.(including a possible cleanup of an existing bridge of the same name)
-If the _max\_machine\_value_ is not set manually, the default value will be **1**.
-As soon as a taskset is provided, the distributor switches into the _running_ state.
-Tasksets can only be submitted via the service.
-In the _running_ state, the Distributor will start up to _max\_machine\_value_ threads.
-Each thread is spawning a Qemu instance and creates a session to connect to it.
-
-After exhausting all tasksets in the submitted jobs the distributor falls back into the 'idle' state.
-The machines are killed and the threads are closed untill a new job is submitted
-
-#### Additional information:
-
- The bridge is not yet removed upon closing the distributor. TODO
-
- Changing the _max\_machine\_value_ while the distributor is _running_ results in an adjustment of the number of running machines.
-
- Submiting a job for processing always (_idle_ / _running_) places it into a queue of jobs to be processed.
-(maybe it should also be possible to abort submitted jobs)
-
-
-
-
-NETWORK BRIDGEING WITH DHCP : 
-
-
-On host machine, add these lines to /etc/network/interface
-
-auto br0
-iface br0 inet dhcp
-bridge_ports eth0
-bridge_stp off
-bridge_maxwait 0
-bridge_fd 0
-
-Also add new dhcp.conf file. 
