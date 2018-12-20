@@ -1,4 +1,4 @@
-from taskgen.monitor import AbstractMonitor
+from distributor_service.monitor import AbstractMonitor
 
 
 class StdOutMonitor(AbstractMonitor):

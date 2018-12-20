@@ -1,0 +1,5 @@
+pymongo==3.6.0
+simso==0.8.5
+simsogui==0.8.1
+xmltodict==0.11.0
+dicttoxml==1.7.4
