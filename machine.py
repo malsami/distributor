@@ -1,6 +1,5 @@
 """
-TODO
-Put module description
+This class manages the connection to a Genode system via some type of GenodeSession
 
 """
 import os
