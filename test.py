@@ -54,7 +54,7 @@ def add_set(distributor, monitor):
 sessions = ['QemuSession','PandaSession']
 s_type = sessions[0]
 mach = 1
-mach_max = 4
+mach_max = 1
 dis = Distributor(max_machine=1, max_allowed=mach_max, session_type=s_type, logging_level=logging.DEBUG, port=3001, startup_delay=20, set_tries=1, timeout=40)
 
 logmon = LoggingMonitor()
