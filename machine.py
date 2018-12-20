@@ -10,7 +10,7 @@ import errno
 import time
 from subprocess import Popen, PIPE
 
-from distributor_service.sessions.genode import * 
+from distributor.sessions.genode import * 
 
 class Machine(threading.Thread):
 	# Starts up a Qemu instance with Genode.
@@ -27,7 +27,7 @@ class Machine(threading.Thread):
 		self.logging_level = logging_level
 		self.logger = logging.getLogger("Machine({})".format(machine_id))
 		if not len(self.logger.handlers):
-			self.hdlr = logging.FileHandler('../distributor_service/log/machine{}.log'.format(machine_id))
+			self.hdlr = logging.FileHandler('../distributor/log/machine{}.log'.format(machine_id))
 			self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 			self.hdlr.setFormatter(self.formatter)
 			

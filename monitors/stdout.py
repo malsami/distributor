@@ -1,4 +1,4 @@
-from distributor_service.monitor import AbstractMonitor
+from distributor.monitor import AbstractMonitor
 
 
 class StdOutMonitor(AbstractMonitor):

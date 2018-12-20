@@ -10,7 +10,7 @@ import xml.dom.minidom # for xml parsing in the logfiles
 from subprocess import Popen, PIPE
 import sys
 sys.path.append('../') # so we can find taskgen
-from distributor_service.session import AbstractSession
+from distributor.session import AbstractSession
 from taskgen.taskset import TaskSet
 
 
@@ -66,7 +66,7 @@ class GenodeSession(AbstractSession):
         self.session_id = session_id
         self.logger = logging.getLogger("GenodeSession({})".format(self.get_host()))
         if not len(self.logger.handlers):
-            self.hdlr = logging.FileHandler('../distributor_service/log/session{}.log'.format(self.session_id))
+            self.hdlr = logging.FileHandler('../distributor/log/session{}.log'.format(self.session_id))
             self.formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
             self.hdlr.setFormatter(self.formatter)
             self.logger.addHandler(self.hdlr)
@@ -427,7 +427,7 @@ class QemuSession(GenodeSession):
         self.sent_bin = set()
         while not inactive.is_set():
             #Spawn new qemu host and return the id if the machine was reachable, otherwise -1
-            Popen(["../distributor_service/qemu.sh", str(self.session_id), str(self.startup_delay)], stdout=PIPE, stderr=PIPE)
+            Popen(["../distributor/qemu.sh", str(self.session_id), str(self.startup_delay)], stdout=PIPE, stderr=PIPE)
             time.sleep(self.startup_delay)
             self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self.startup_delay))
             if GenodeSession._available(self):
@@ -449,7 +449,7 @@ class QemuSession(GenodeSession):
     @staticmethod
     def clean_host(logger, qemu_id):
         logger.info("session {}:clean_host(): cleaning Qemu instance of 10.200.45.{}.".format(qemu_id, qemu_id))
-        pids = Popen(['../distributor_service/grep_screen.sh', str(qemu_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
+        pids = Popen(['../distributor/grep_screen.sh', str(qemu_id)], stdout=PIPE, stderr=PIPE).communicate()[0].split()
         c = 0
         for p in pids:
             pid = str(p,'utf-8')
@@ -524,7 +524,7 @@ class PandaSession(GenodeSession):
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
         while not inactive.is_set():
-            Popen(["../distributor_service/poe_on.sh", 'panda'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
+            Popen(["../distributor/poe_on.sh", 'panda'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
             time.sleep(self.startup_delay)
             self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self. startup_delay))
             if GenodeSession._available(self):
@@ -539,7 +539,7 @@ class PandaSession(GenodeSession):
 
     @staticmethod
     def clean_host(logger, panda_id):
-        Popen(['../distributor_service/poe_off.sh', 'panda'+str(panda_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+        Popen(['../distributor/poe_off.sh', 'panda'+str(panda_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
         logger.debug("Panda {} was shut down.".format(panda_id))
         """
         try:

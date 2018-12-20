@@ -2,8 +2,8 @@ import sys
 sys.path.append('../')
 import logging
 import time
-from distributor_service.distributor import Distributor
-from distributor_service.monitors.loggingMonitor import LoggingMonitor
+from distributor.distributorClass import Distributor
+from distributor.monitors.loggingMonitor import LoggingMonitor
 from clean import clean_function
 from taskgen.taskset import TaskSet
 from taskgen.task import Task
@@ -25,11 +25,7 @@ def exampleTest():
     task05 = Task(linpack.Value(5), period.Value(0), priority.Value(0), quota.Value(5), {'caps':50})
     set.append(task05)
 
-
     return set
-
-
-
 
 
 def example5():
@@ -45,10 +41,10 @@ def example5():
     task04 = Task(cond_mod.Variants(5), period.Value(0), priority.Value(4), quota.Value(5), {'caps':50})
     set.append(task04)
     task05 = Task(linpack.Variants(5), period.Value(0), priority.Value(0), quota.Value(5), {'caps':50})
-
     set.append(task05)
 
     return set
+
 
 def add_set(distributor, monitor):
 	tset = exampleTest()
