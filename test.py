@@ -2,7 +2,7 @@ import sys
 sys.path.append('../')
 import logging
 import time
-from distributor.distributor import Distributor
+from distributor.distributorClass import Distributor
 from distributor.monitors.loggingMonitor import LoggingMonitor
 from clean import clean_function
 from taskgen.taskset import TaskSet

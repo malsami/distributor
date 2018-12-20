@@ -1,5 +1,5 @@
 ### The Distributor
-The Distributor component in [distributor.py](./distributor.py) manages a certain (predefined) number of Machine instances. It also takes care of data that was provided to the Distributor for execution And provides it to the Machine instances.
+The Distributor component in [distributorClass.py](./distributorClass.py) manages a certain (predefined) number of Machine instances. It also takes care of data that was provided to the Distributor for execution And provides it to the Machine instances.
 
 The Disttributor provides the following options via its init().
 If no values are set, the init is called as follows:
