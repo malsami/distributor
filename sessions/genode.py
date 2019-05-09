@@ -550,3 +550,168 @@ class PandaSession(GenodeSession):
             logger.info('session {}: PANDA_{} was reset'.format(panda_id, panda_id))
         """
 
+
+
+class Raspberry2Session(GenodeSession):
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
+
+
+    def get_host(self):
+        return '10.200.34.{}'.format(self.session_id)
+
+
+    def start(self, taskset, admctrl=None):
+        try:
+            GenodeSession.start(self, taskset, admctrl)
+            self.t = 0
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry2Session.errorHandling(self.logger, self.session_id, 'start', e)
+
+
+    def stop(self):
+        try:
+            GenodeSession.stop(self)
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry2Session.errorHandling(self.logger, self.session_id, 'stop', e)
+
+
+    def connect(self):
+        try:
+            GenodeSession._connect(self)
+        except Exception as e:
+            Raspberry2Session.errorHandling(self.logger, self.session_id, 'connect', e)
+
+
+    def close(self):
+        try:
+            GenodeSession.close(self)
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry2Session.errorHandling(self.logger, self.session_id, 'close', e)
+
+
+    def run(self):
+        try:
+            if GenodeSession.run(self):
+                self.t = 0
+                return True
+            elif self.t > self.timeout:
+                self.logger.error("session {}: genode is not responding for over {}s, killing it".format(self.session_id, self.timeout))
+                raise HOST_killed('RPI2_{} is killed'.format(self.session_id))
+            else:
+                self.t += 2
+                return False
+        except Exception as e:
+            Raspberry2Session.errorHandling(self.logger, self.session_id, 'run', e)
+
+
+    @staticmethod
+    def errorHandling(logger, session_id, methodName, error):
+        logger.error("session {}: an error occured during {}: {}".format(session_id, methodName, error))
+        Raspberry2Session.clean_host(logger, session_id)
+        raise HOST_killed('RPI2_{} was shut down'.format(session_id))
+
+
+    def start_host(self, inactive, _continue):
+        self.sent_bin = set()
+        while not inactive.is_set():
+            Popen(["../distributor/poe_on.sh", 'rpi2'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
+            time.sleep(self.startup_delay)
+            self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self. startup_delay))
+            if GenodeSession._available(self):
+                return self.get_host()
+            else:
+                self.clean_host(self.logger, self.session_id)
+                if not _continue:
+                    inactive.set()
+                    return ''
+
+
+
+    @staticmethod
+    def clean_host(logger, rpi2_id):
+        Popen(['../distributor/poe_off.sh', 'rpi2'+str(rpi2_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+        logger.debug("Raspberry Pi 2 {} was shut down.".format(rpi2_id))
+        
+
+class Raspberry3Session(GenodeSession):
+    def __init__(self, session_id, port, logging_level, startup_delay, timeout):
+        GenodeSession.__init__(self, session_id, port, logging_level, startup_delay, timeout)
+
+
+    def get_host(self):
+        return '10.200.35.{}'.format(self.session_id)
+
+
+    def start(self, taskset, admctrl=None):
+        try:
+            GenodeSession.start(self, taskset, admctrl)
+            self.t = 0
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry3Session.errorHandling(self.logger, self.session_id, 'start', e)
+
+
+    def stop(self):
+        try:
+            GenodeSession.stop(self)
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry3Session.errorHandling(self.logger, self.session_id, 'stop', e)
+
+
+    def connect(self):
+        try:
+            GenodeSession._connect(self)
+        except Exception as e:
+            Raspberry3Session.errorHandling(self.logger, self.session_id, 'connect', e)
+
+
+    def close(self):
+        try:
+            GenodeSession.close(self)
+        except (socket.timeout, BrokenPipeError) as e:
+            Raspberry3Session.errorHandling(self.logger, self.session_id, 'close', e)
+
+
+    def run(self):
+        try:
+            if GenodeSession.run(self):
+                self.t = 0
+                return True
+            elif self.t > self.timeout:
+                self.logger.error("session {}: genode is not responding for over {}s, killing it".format(self.session_id, self.timeout))
+                raise HOST_killed('RPI3_{} is killed'.format(self.session_id))
+            else:
+                self.t += 2
+                return False
+        except Exception as e:
+            Raspberry3Session.errorHandling(self.logger, self.session_id, 'run', e)
+
+
+    @staticmethod
+    def errorHandling(logger, session_id, methodName, error):
+        logger.error("session {}: an error occured during {}: {}".format(session_id, methodName, error))
+        Raspberry3Session.clean_host(logger, session_id)
+        raise HOST_killed('RPI3_{} was shut down'.format(session_id))
+
+
+    def start_host(self, inactive, _continue):
+        self.sent_bin = set()
+        while not inactive.is_set():
+            Popen(["../distributor/poe_on.sh", 'rpi3'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
+            time.sleep(self.startup_delay)
+            self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self. startup_delay))
+            if GenodeSession._available(self):
+                return self.get_host()
+            else:
+                self.clean_host(self.logger, self.session_id)
+                if not _continue:
+                    inactive.set()
+                    return ''
+
+
+
+    @staticmethod
+    def clean_host(logger, rpi3_id):
+        Popen(['../distributor/poe_off.sh', 'rpi3'+str(rpi3_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+        logger.debug("Raspberry Pi 3 {} was shut down.".format(rpi3_id))
+        
