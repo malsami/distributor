@@ -615,7 +615,7 @@ class Raspberry2Session(GenodeSession):
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
         while not inactive.is_set():
-            Popen(["../distributor/poe_on.sh", 'rpi2'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
+            Popen(["../distributor/poe_on.sh", 'rpi2-'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
             time.sleep(self.startup_delay)
             self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self. startup_delay))
             if GenodeSession._available(self):
@@ -630,7 +630,7 @@ class Raspberry2Session(GenodeSession):
 
     @staticmethod
     def clean_host(logger, rpi2_id):
-        Popen(['../distributor/poe_off.sh', 'rpi2'+str(rpi2_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+        Popen(['../distributor/poe_off.sh', 'rpi2-'+str(rpi2_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
         logger.debug("Raspberry Pi 2 {} was shut down.".format(rpi2_id))
         
 
@@ -697,7 +697,7 @@ class Raspberry3Session(GenodeSession):
     def start_host(self, inactive, _continue):
         self.sent_bin = set()
         while not inactive.is_set():
-            Popen(["../distributor/poe_on.sh", 'rpi3'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
+            Popen(["../distributor/poe_on.sh", 'rpi3-'+str(self.session_id)], stdout=PIPE, stderr=PIPE)
             time.sleep(self.startup_delay)
             self.logger.debug("session {}:start_host: the startup delay was {}s___________________________________".format(self.session_id, self. startup_delay))
             if GenodeSession._available(self):
@@ -712,6 +712,6 @@ class Raspberry3Session(GenodeSession):
 
     @staticmethod
     def clean_host(logger, rpi3_id):
-        Popen(['../distributor/poe_off.sh', 'rpi3'+str(rpi3_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
+        Popen(['../distributor/poe_off.sh', 'rpi3-'+str(rpi3_id)], stdout=PIPE, stderr=PIPE).communicate()[0]
         logger.debug("Raspberry Pi 3 {} was shut down.".format(rpi3_id))
         
